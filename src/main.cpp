@@ -9,6 +9,7 @@
 #include "apps/today/TodayApp.h"
 #include "core/PowerManager.h"
 #include "core/ReminderService.h"
+#include "core/BackupService.h"
 #include "data/CalendarStore.h"
 #include "data/HabitStore.h"
 #include "data/NoteStore.h"
@@ -29,6 +30,7 @@ static HabitStore habitStore(hardware.storage, hardware.spi);
 static TaskStore taskStore(hardware.storage, hardware.spi);
 static NoteStore noteStore(hardware.storage, hardware.spi);
 static UsbDiskService usbDisk(hardware.storage, hardware.spi);
+static BackupService backup(hardware.storage, hardware.spi, settingsStore);
 static TodayApp today(hardware.rtc, calendarStore);
 static CalendarApp calendar(calendarStore, hardware.rtc);
 static TasksApp tasks(taskStore, hardware.rtc);
@@ -36,9 +38,19 @@ static NotesApp notes(noteStore);
 static ClockApp clockApp(hardware.rtc);
 static HabitsApp habits(habitStore, hardware.rtc, hardware.haptic);
 static FilesApp files(hardware.storage, hardware.spi);
-static SettingsApp settings(settingsStore, hardware, power, hardware.rtc, shell, usbDisk);
+static SettingsApp settings(settingsStore, hardware, power, hardware.rtc, shell, usbDisk, backup);
 static ReminderService reminders;
 static uint32_t lastMemoryLog = 0;
+
+static void dataRestored(void *) {
+    settingsStore.load();
+    calendarStore.load();
+    habitStore.load();
+    taskStore.load();
+    noteStore.load();
+    power.setConfig(settingsStore.powerConfig());
+    hardware.setBrightness(settingsStore.value().brightness);
+}
 
 static void usbDiskFinished(void *, bool storageReady) {
     if (!storageReady) {
@@ -72,6 +84,7 @@ void setup() {
     }
     shell.begin(hardware, today, calendar, tasks, notes, clockApp, habits, files, settings);
     usbDisk.setFinishedCallback(usbDiskFinished, nullptr);
+    backup.setRestoredCallback(dataRestored, nullptr);
     input.begin(shell);
     power.begin(hardware, settingsStore.powerConfig());
     reminders.begin(calendarStore, taskStore, hardware.rtc, shell);

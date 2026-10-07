@@ -1,6 +1,6 @@
 # NeuroDivergent PDA
 
-Phone-free personal organization firmware for the [LILYGO T-LoRa Pager](https://lilygo.cc/products/t-lora-pager), inspired the practical strengths of classic Palm and Psion handhelds.
+Phone-free personal organization firmware for the [LILYGO T-LoRa Pager](https://lilygo.cc/products/t-lora-pager), inspired by the practical strengths of classic Palm and Psion handhelds.
 
 This project is for people who benefit from a dependable external memory aid but do not want to carry—or be pulled into—a smartphone. It keeps the useful parts of a phone-sized organizer while leaving out social media, feeds, notifications from other people, advertising, and attention-driven apps.
 
@@ -27,6 +27,7 @@ This is an assistive organizer, not a medical device, treatment, or substitute f
 - **Habits + Pet:** editable daily habits, streaks, and an animated companion that reacts to progress
 - **Files:** microSD folder browser, text preview, and deletion
 - **Settings:** clock, brightness, display timeouts, storage status, haptic test, USB Disk Mode, and shutdown
+- **Portable backup:** one checksummed file for calendar, tasks, habits, notes, files, and device settings
 - Persistent status bar, launcher, haptic notifications, and dim/display-off power states
 - Versioned, checksummed microSD data and internal nonvolatile settings
 
@@ -98,7 +99,13 @@ Tasks are bounded at 64 records, Habits at 8 daily habits, Notes at 32 records, 
 4. Copy files normally.
 5. Eject the SD volume on the computer before disconnecting or resetting the Pager.
 
-PocketPDA gives the computer exclusive control of the card during USB Disk Mode. After a safe eject, it remounts the card and reloads Calendar, Tasks, and Notes automatically.
+PocketPDA gives the computer exclusive control of the card during USB Disk Mode. After a safe eject, it remounts the card and reloads Calendar, Habits, Tasks, and Notes automatically.
+
+## Backup and restore
+
+Open **Settings** and choose **BACKUP**. PocketPDA streams all organizer data into `/PocketPDA/backups/PocketPDA-Backup.ppb` without loading it all into RAM. Then use **USB DISK** to copy that single file to a computer.
+
+To restore, copy `PocketPDA-Backup.ppb` from the computer back into `/PocketPDA/backups/`, safely eject the volume, leave USB Disk Mode, and choose **RESTORE** in Settings. The complete archive and every file checksum are validated first. Data is extracted into staging directories and swapped into place only after validation succeeds; invalid or incomplete backups are rejected.
 
 ## Bulk calendar import
 

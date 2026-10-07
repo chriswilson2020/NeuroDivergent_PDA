@@ -1,4 +1,5 @@
 #include "SettingsApp.h"
+#include "core/BackupService.h"
 #include "core/PowerManager.h"
 #include "hardware/HardwareManager.h"
 #include "hardware/RTCService.h"
@@ -28,10 +29,11 @@ void SettingsApp::create(lv_obj_t *parent) {
     dim_ = lv_dropdown_create(root_); lv_dropdown_set_options(dim_, "15 sec\n30 sec\n60 sec"); lv_obj_set_pos(dim_, 0, 74); lv_obj_set_size(dim_, 145, 35); const uint16_t dimValues[] = {15,30,60}; lv_dropdown_set_selected(dim_, nearestIndex(store_.value().dimSeconds, dimValues));
     sleep_ = lv_dropdown_create(root_); lv_dropdown_set_options(sleep_, "2 min\n5 min\n10 min"); lv_obj_set_pos(sleep_, 155, 74); lv_obj_set_size(sleep_, 145, 35); const uint16_t sleepValues[] = {120,300,600}; lv_dropdown_set_selected(sleep_, nearestIndex(store_.value().sleepSeconds, sleepValues));
     lv_obj_t *storage = lv_label_create(root_); if (hardware_.storage.mounted()) { SPIBusManager::Guard guard(hardware_.spi); if (guard) lv_label_set_text_fmt(storage, "microSD: %llu MB", static_cast<unsigned long long>(SD.cardSize() / 1024 / 1024)); else lv_label_set_text(storage, "microSD: busy"); } else lv_label_set_text(storage, "microSD: not mounted"); lv_obj_set_style_text_font(storage, &lv_font_montserrat_12, 0); lv_obj_set_pos(storage, 315, 72);
-    lv_obj_t *saveButton = FormWidgets::button(root_, "SAVE", 0, 130, 110, 45, true); lv_obj_add_event_cb(saveButton, saveClicked, LV_EVENT_CLICKED, this);
-    lv_obj_t *hapticButton = FormWidgets::button(root_, "HAPTIC TEST", 118, 130, 125, 45); lv_obj_add_event_cb(hapticButton, hapticClicked, LV_EVENT_CLICKED, this);
-    lv_obj_t *usbButton = FormWidgets::button(root_, "USB DISK", 251, 130, 90, 45); lv_obj_add_event_cb(usbButton, usbDiskClicked, LV_EVENT_CLICKED, this);
-    lv_obj_t *shutdownButton = FormWidgets::button(root_, "SHUT DOWN", 349, 130, 120, 45); lv_obj_add_event_cb(shutdownButton, shutdownClicked, LV_EVENT_CLICKED, this);
+    lv_obj_t *saveButton = FormWidgets::button(root_, "SAVE", 0, 130, 78, 45, true); lv_obj_add_event_cb(saveButton, saveClicked, LV_EVENT_CLICKED, this);
+    lv_obj_t *backupButton = FormWidgets::button(root_, "BACKUP", 84, 130, 88, 45); lv_obj_add_event_cb(backupButton, backupClicked, LV_EVENT_CLICKED, this);
+    lv_obj_t *restoreButton = FormWidgets::button(root_, "RESTORE", 178, 130, 91, 45); lv_obj_add_event_cb(restoreButton, restoreClicked, LV_EVENT_CLICKED, this);
+    lv_obj_t *usbButton = FormWidgets::button(root_, "USB DISK", 275, 130, 88, 45); lv_obj_add_event_cb(usbButton, usbDiskClicked, LV_EVENT_CLICKED, this);
+    lv_obj_t *shutdownButton = FormWidgets::button(root_, "POWER", 369, 130, 100, 45); lv_obj_add_event_cb(shutdownButton, shutdownClicked, LV_EVENT_CLICKED, this);
 }
 void SettingsApp::destroy() { if (root_) { lv_obj_delete(root_); root_ = nullptr; } date_ = time_ = brightness_ = dim_ = sleep_ = nullptr; }
 void SettingsApp::save() {
@@ -42,7 +44,9 @@ void SettingsApp::save() {
     DeviceSettings settings{}; settings.brightness = selectedBrightness(lv_dropdown_get_selected(brightness_)); settings.dimBrightness = 2; settings.dimSeconds = selectedDim(lv_dropdown_get_selected(dim_)); settings.sleepSeconds = selectedSleep(lv_dropdown_get_selected(sleep_)); store_.save(settings); power_.setConfig(store_.powerConfig()); shell_.notifications().show("SETTINGS SAVED", "Clock, brightness, and timeouts updated.");
 }
 void SettingsApp::saveClicked(lv_event_t *event) { static_cast<SettingsApp *>(lv_event_get_user_data(event))->save(); }
-void SettingsApp::hapticClicked(lv_event_t *event) { static_cast<SettingsApp *>(lv_event_get_user_data(event))->hardware_.haptic.play(47); }
+void SettingsApp::backupClicked(lv_event_t *event) { auto *self = static_cast<SettingsApp *>(lv_event_get_user_data(event)); if (self->backup_.create()) self->shell_.notifications().show("BACKUP READY", "Saved as PocketPDA-Backup.ppb. Use USB Disk Mode to copy it to a computer."); else self->shell_.notifications().show("BACKUP FAILED", self->backup_.lastError()); }
+void SettingsApp::restoreClicked(lv_event_t *event) { auto *self = static_cast<SettingsApp *>(lv_event_get_user_data(event)); self->shell_.notifications().show("RESTORE BACKUP?", "Current organizer data will be replaced only after the backup passes validation.", "RESTORE", confirmRestore, self); }
+void SettingsApp::confirmRestore(void *context) { auto *self = static_cast<SettingsApp *>(context); if (self->backup_.restore()) self->shell_.notifications().show("RESTORE COMPLETE", "Calendar, habits, tasks, notes, files, and settings were restored."); else self->shell_.notifications().show("RESTORE FAILED", self->backup_.lastError()); }
 void SettingsApp::usbDiskClicked(lv_event_t *event) { auto *self = static_cast<SettingsApp *>(lv_event_get_user_data(event)); if (!self->usbDisk_.begin(nullptr, nullptr)) self->shell_.notifications().show("USB DISK UNAVAILABLE", self->usbDisk_.lastError()); }
 void SettingsApp::shutdownClicked(lv_event_t *event) { auto *self = static_cast<SettingsApp *>(lv_event_get_user_data(event)); self->shell_.notifications().show("SHUT DOWN?", "Disconnect USB-C first.\nPress SHUT DOWN to confirm.", "SHUT DOWN", confirmShutdown, self); }
 void SettingsApp::confirmShutdown(void *context) { auto *self = static_cast<SettingsApp *>(context); if (!self->hardware_.shutdown()) { self->hardware_.setBrightness(self->power_.config().activeBrightness); self->shell_.notifications().show("USB-C CONNECTED", "Disconnect USB-C before shutting down."); } }
