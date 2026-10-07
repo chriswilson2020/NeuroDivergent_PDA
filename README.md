@@ -1,6 +1,6 @@
 # NeuroDivergent PDA
 
-Phone-free personal organization firmware for the [LILYGO T-LoRa Pager](https://lilygo.cc/products/t-lora-pager), inspired by Gabriel and by the practical strengths of classic Palm and Psion handhelds.
+Phone-free personal organization firmware for the [LILYGO T-LoRa Pager](https://lilygo.cc/products/t-lora-pager), inspired the practical strengths of classic Palm and Psion handhelds.
 
 This project is for people who benefit from a dependable external memory aid but do not want to carry—or be pulled into—a smartphone. It keeps the useful parts of a phone-sized organizer while leaving out social media, feeds, notifications from other people, advertising, and attention-driven apps.
 
