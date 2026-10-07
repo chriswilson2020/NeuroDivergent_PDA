@@ -1,0 +1,8 @@
+.pio/
+.venv/
+.vscode/
+.DS_Store
+output/
+
+# Personal schedule source used to create a local test import. Do not publish.
+tools/build_gabriel_agenda.py

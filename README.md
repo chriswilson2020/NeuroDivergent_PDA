@@ -1,0 +1,121 @@
+# NeuroDivergent PDA
+
+Phone-free personal organization firmware for the [LILYGO T-LoRa Pager](https://lilygo.cc/products/t-lora-pager), inspired by Gabriel and by the practical strengths of classic Palm and Psion handhelds.
+
+This project is for people who benefit from a dependable external memory aid but do not want to carry—or be pulled into—a smartphone. It keeps the useful parts of a phone-sized organizer while leaving out social media, feeds, notifications from other people, advertising, and attention-driven apps.
+
+## Why a dedicated PDA?
+
+Neurodivergent people are not one group with one set of needs. For some people, however, a small single-purpose device can help with:
+
+- **Time blindness:** the Today screen, dated tasks, lesson times, and advance reminders make upcoming transitions visible.
+- **Working-memory load:** appointments, tasks, and notes live in one predictable place instead of needing to be remembered.
+- **Distraction control:** there is no browser, social feed, messaging stream, or app store competing for attention.
+- **Predictability:** tactile controls, consistent screens, and local data avoid changing cloud interfaces and surprise notifications.
+- **Lower sensory and social pressure:** alerts are simple and intentional, using a screen and vibration rather than a noisy phone environment.
+- **Independence and privacy:** core features work offline and personal data stays on the microSD card.
+
+This is an assistive organizer, not a medical device, treatment, or substitute for professional support. The best tools are personal; the firmware is designed to be adapted.
+
+## Current features
+
+- **Today:** current date, upcoming calendar events, and task summary
+- **Calendar:** day agenda, create/edit/delete, reminders, weekly recurrence, and bulk CSV import
+- **Tasks:** priorities, due dates, optional 09:00 reminders, completion, and weekly rollover
+- **Notes:** compact note list and editor with separate note-body storage
+- **Clock:** RTC-backed date/time and stopwatch
+- **Calculator:** four-function keypad and typed expressions
+- **Files:** microSD folder browser, text preview, and deletion
+- **Settings:** clock, brightness, display timeouts, storage status, haptic test, USB Disk Mode, and shutdown
+- Persistent status bar, launcher, haptic notifications, and dim/display-off power states
+- Versioned, checksummed microSD data and internal nonvolatile settings
+
+Calendar events stay on the card. Only the current and following calendar week are cached in PSRAM; the on-disk format supports up to 65,535 events.
+
+## Hardware
+
+- LILYGO T-LoRa Pager
+- FAT32-formatted microSD card
+- USB-C data cable for flashing and USB Disk Mode
+
+The card is required for Calendar, Tasks, Notes, and Files. Insert or remove it only while the Pager is off. PocketPDA creates its directory structure on first boot.
+
+## Build and flash
+
+The local virtual environment avoids the externally-managed Python restriction used by current Homebrew Python installations:
+
+```sh
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install platformio
+pio run
+pio run -t upload
+```
+
+For subsequent builds:
+
+```sh
+source .venv/bin/activate
+pio run -t upload
+```
+
+Keep the Pager on and connected with a USB data cable. If upload does not start, hold **BOOT**, tap **RESET**, release **BOOT**, and retry. The build pins its LilyGoLib revision and uses the pioarduino Arduino-ESP32 3.x platform.
+
+## Controls
+
+- Rotate the wheel to move focus or scroll.
+- Press the wheel to activate the focused control or enter/leave text-editing mode.
+- The physical Back key deletes inside an input field; outside an input it returns to the launcher or dismisses a dialog.
+- Hold **Space** plus `Q` through `P` for numbers `1` through `0`; other letter keys produce their printed symbols.
+- Hold **CAP** plus a letter for uppercase.
+- The orange **Alt** key mirrors the number/symbol layer while editing.
+- Outside text fields, **Alt+L** opens the launcher and **Alt+T** opens Today.
+
+## Storage layout
+
+```text
+/PocketPDA/calendar/events.dat
+/PocketPDA/tasks/tasks.dat
+/PocketPDA/notes/index.dat
+/PocketPDA/notes/00000001.txt
+/PocketPDA/files/
+```
+
+Tasks are bounded at 64 records, Notes at 32 records, note bodies at 2047 bytes, and Files displays up to 32 entries per folder.
+
+## Copying files without removing the card
+
+1. Connect the running Pager to the computer.
+2. Open **Settings** and choose **USB DISK**.
+3. Wait for the microSD volume to appear on the computer.
+4. Copy files normally.
+5. Eject the SD volume on the computer before disconnecting or resetting the Pager.
+
+PocketPDA gives the computer exclusive control of the card during USB Disk Mode. After a safe eject, it remounts the card and reloads Calendar, Tasks, and Notes automatically.
+
+## Bulk calendar import
+
+Copy a CSV to `/PocketPDA/calendar/import.csv`. A generic example is included at [`examples/calendar-import.csv`](examples/calendar-import.csv).
+
+```csv
+date,start,end,title,location,reminder_minutes
+2026-10-08,08:30,09:30,First lesson,Room 12,5
+```
+
+After boot—or immediately after safely leaving USB Disk Mode—the firmware validates the complete file, replaces the calendar, stores it in the checksummed native format, and renames the source to `last-import.csv`. Up to 65,535 rows are accepted. Fields must not contain commas.
+
+## Reminder behavior
+
+- Calendar reminders fire the configured number of minutes before an event, vibrate, and show its title, room, and time.
+- Task reminders are optional and currently fire at 09:00 on the due date.
+- A reminder value of `0` means the event start time; new calendar events default to `5` minutes beforehand.
+
+## Power off
+
+Open **Settings**, choose **SHUT DOWN**, and confirm. USB-C must be disconnected because external power keeps the board alive. Press the hardware PWR button to wake it.
+
+## Project status
+
+This is early hardware-specific firmware. Back up important data before testing new builds. LoRa, GPS, NFC, motion sensing, and audio are deliberately not initialized in v0.1.
+
+Contributions and device-testing reports are welcome, especially improvements that make the interface calmer, clearer, and easier to operate without a phone.
