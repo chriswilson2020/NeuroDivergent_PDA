@@ -5,7 +5,7 @@
 struct LauncherItem { const char *label; const char *id; };
 static constexpr LauncherItem kItems[] = {
     {"TODAY", "today"}, {"CALENDAR", "calendar"}, {"TASKS", "tasks"},
-    {"NOTES", "notes"}, {"CLOCK", "clock"}, {"CALCULATOR", "calculator"},
+    {"NOTES", "notes"}, {"CLOCK", "clock"}, {"HABITS + PET", "habits"},
     {"FILES", "files"}, {"SETTINGS", "settings"}, {"HAPTIC TEST", "_haptic"}
 };
 

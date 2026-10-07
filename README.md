@@ -24,13 +24,19 @@ This is an assistive organizer, not a medical device, treatment, or substitute f
 - **Tasks:** priorities, due dates, optional 09:00 reminders, completion, and weekly rollover
 - **Notes:** compact note list and editor with separate note-body storage
 - **Clock:** RTC-backed date/time and stopwatch
-- **Calculator:** four-function keypad and typed expressions
+- **Habits + Pet:** editable daily habits, streaks, and an animated companion that reacts to progress
 - **Files:** microSD folder browser, text preview, and deletion
 - **Settings:** clock, brightness, display timeouts, storage status, haptic test, USB Disk Mode, and shutdown
 - Persistent status bar, launcher, haptic notifications, and dim/display-off power states
 - Versioned, checksummed microSD data and internal nonvolatile settings
 
 Calendar events stay on the card. Only the current and following calendar week are cached in PSRAM; the on-disk format supports up to 65,535 events.
+
+## Habits and Mochi
+
+Open **HABITS + PET** from the launcher. Press a habit to mark it complete for today; press it again to undo. The `...` button renames or deletes that habit, and **+ HABIT** creates another one. Up to eight daily habits are supported.
+
+Mochi reacts immediately to progress: calm at the start of the day, proud after some progress, and golden, bouncing, and surrounded by a floating heart when everything is complete. If the evening arrives with nothing checked, Mochi becomes blue and droopy—but is always ready to cheer up again. Consecutive-day streaks appear beside each habit, and all progress is saved on the microSD card.
 
 ## Hardware
 
@@ -78,10 +84,11 @@ Keep the Pager on and connected with a USB data cable. If upload does not start,
 /PocketPDA/tasks/tasks.dat
 /PocketPDA/notes/index.dat
 /PocketPDA/notes/00000001.txt
+/PocketPDA/habits/habits.dat
 /PocketPDA/files/
 ```
 
-Tasks are bounded at 64 records, Notes at 32 records, note bodies at 2047 bytes, and Files displays up to 32 entries per folder.
+Tasks are bounded at 64 records, Habits at 8 daily habits, Notes at 32 records, note bodies at 2047 bytes, and Files displays up to 32 entries per folder.
 
 ## Copying files without removing the card
 

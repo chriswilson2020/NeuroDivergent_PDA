@@ -9,7 +9,7 @@ class HardwareManager;
 class Shell {
 public:
     void begin(HardwareManager &hardware, App &todayApp, App &calendarApp, App &tasksApp, App &notesApp,
-               App &clockApp, App &calculatorApp, App &filesApp, App &settingsApp);
+               App &clockApp, App &habitsApp, App &filesApp, App &settingsApp);
     void update();
     void goToday();
     void back();

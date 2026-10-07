@@ -1,8 +1,8 @@
 #include <Arduino.h>
-#include "apps/calculator/CalculatorApp.h"
 #include "apps/calendar/CalendarApp.h"
 #include "apps/clock/ClockApp.h"
 #include "apps/files/FilesApp.h"
+#include "apps/habits/HabitsApp.h"
 #include "apps/notes/NotesApp.h"
 #include "apps/settings/SettingsApp.h"
 #include "apps/tasks/TasksApp.h"
@@ -10,6 +10,7 @@
 #include "core/PowerManager.h"
 #include "core/ReminderService.h"
 #include "data/CalendarStore.h"
+#include "data/HabitStore.h"
 #include "data/NoteStore.h"
 #include "data/SettingsStore.h"
 #include "data/TaskStore.h"
@@ -24,6 +25,7 @@ static InputManager input;
 static PowerManager power;
 static SettingsStore settingsStore;
 static CalendarStore calendarStore(hardware.storage, hardware.spi);
+static HabitStore habitStore(hardware.storage, hardware.spi);
 static TaskStore taskStore(hardware.storage, hardware.spi);
 static NoteStore noteStore(hardware.storage, hardware.spi);
 static UsbDiskService usbDisk(hardware.storage, hardware.spi);
@@ -32,7 +34,7 @@ static CalendarApp calendar(calendarStore, hardware.rtc);
 static TasksApp tasks(taskStore, hardware.rtc);
 static NotesApp notes(noteStore);
 static ClockApp clockApp(hardware.rtc);
-static CalculatorApp calculator;
+static HabitsApp habits(habitStore, hardware.rtc, hardware.haptic);
 static FilesApp files(hardware.storage, hardware.spi);
 static SettingsApp settings(settingsStore, hardware, power, hardware.rtc, shell, usbDisk);
 static ReminderService reminders;
@@ -44,13 +46,14 @@ static void usbDiskFinished(void *, bool storageReady) {
         return;
     }
     calendarStore.load();
+    habitStore.load();
     taskStore.load();
     noteStore.load();
     if (calendarStore.lastImportCount()) {
         char message[72]; snprintf(message, sizeof(message), "%u events imported and all data reloaded.", static_cast<unsigned>(calendarStore.lastImportCount()));
         shell.notifications().show("AGENDA IMPORTED", message);
     } else {
-        shell.notifications().show("USB DISK FINISHED", "SD card ejected safely. Calendar, tasks, and notes reloaded.");
+        shell.notifications().show("USB DISK FINISHED", "SD card ejected safely. Calendar, habits, tasks, and notes reloaded.");
     }
 }
 
@@ -63,10 +66,11 @@ void setup() {
     const bool storageReady = hardware.storage.mount(hardware.spi);
     if (storageReady) {
         calendarStore.load();
+        habitStore.load();
         taskStore.load();
         noteStore.load();
     }
-    shell.begin(hardware, today, calendar, tasks, notes, clockApp, calculator, files, settings);
+    shell.begin(hardware, today, calendar, tasks, notes, clockApp, habits, files, settings);
     usbDisk.setFinishedCallback(usbDiskFinished, nullptr);
     input.begin(shell);
     power.begin(hardware, settingsStore.powerConfig());
@@ -75,7 +79,7 @@ void setup() {
         char message[72]; snprintf(message, sizeof(message), "%u events loaded from the SD card.", static_cast<unsigned>(calendarStore.lastImportCount()));
         shell.notifications().show("AGENDA IMPORTED", message);
     } else if (!essentialHardwareReady) shell.notifications().show("HARDWARE WARNING", "One or more essential devices were not detected. See the serial log.");
-    else if (!storageReady) shell.notifications().show("STORAGE WARNING", "microSD was not mounted. Calendar, tasks, and notes cannot be saved.");
+    else if (!storageReady) shell.notifications().show("STORAGE WARNING", "microSD was not mounted. Calendar, habits, tasks, and notes cannot be saved.");
 }
 
 void loop() {

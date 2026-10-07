@@ -9,7 +9,7 @@ bool StorageService::mount(SPIBusManager &bus) {
     if (!guard) return false;
     mounted_ = instance.installSD();
     if (!mounted_) return false;
-    const char *paths[] = {"/PocketPDA", "/PocketPDA/calendar", "/PocketPDA/tasks", "/PocketPDA/notes", "/PocketPDA/files", "/PocketPDA/backups"};
+    const char *paths[] = {"/PocketPDA", "/PocketPDA/calendar", "/PocketPDA/tasks", "/PocketPDA/notes", "/PocketPDA/habits", "/PocketPDA/files", "/PocketPDA/backups"};
     for (const char *path : paths) if (!SD.exists(path)) SD.mkdir(path);
     return true;
 }
