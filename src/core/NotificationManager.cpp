@@ -15,7 +15,7 @@ void NotificationManager::begin(lv_obj_t *screen, HapticService &haptic) {
     actionLabel_ = lv_label_create(actionButton_); lv_label_set_text(actionLabel_, "OPEN"); lv_obj_center(actionLabel_);
     lv_obj_set_hidden(overlay_, true);
 }
-void NotificationManager::show(const char *title, const char *detail, const char *actionLabel, NotificationAction action, void *context) {
+void NotificationManager::show(const char *title, const char *detail, const char *actionLabel, NotificationAction action, void *context, uint8_t hapticEffect) {
     lv_label_set_text(title_, title); lv_label_set_text(detail_, detail);
     action_ = action; actionContext_ = context;
     lv_obj_set_hidden(actionButton_, !action_);
@@ -24,7 +24,7 @@ void NotificationManager::show(const char *title, const char *detail, const char
     focusBefore_ = lv_group_get_focused(lv_group_get_default());
     lv_obj_set_hidden(overlay_, false); lv_obj_move_foreground(overlay_); active_ = true;
     lv_group_focus_obj(dismissButton_);
-    if (haptic_) haptic_->play(47);
+    if (haptic_) haptic_->play(hapticEffect);
     EventBus::instance().publish(SystemEvent::NotificationChanged);
 }
 void NotificationManager::dismiss() {

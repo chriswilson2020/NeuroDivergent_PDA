@@ -26,7 +26,7 @@ This is an assistive organizer, not a medical device, treatment, or substitute f
 - **Tasks:** priorities, due dates, optional 09:00 reminders, and daily, weekday, weekly, or monthly recurrence
 - **Routines:** reusable, one-step-at-a-time checklists for predictable transitions and daily activities
 - **Notes:** compact note list and editor with separate note-body storage
-- **Clock:** RTC-backed date/time and stopwatch
+- **Timers & Alarms:** editable named countdown presets and daily alarms with gentle, focus, or urgent vibration patterns
 - **Habits + Pet:** editable daily habits, streaks, and an animated companion that reacts to progress
 - **Files:** microSD folder browser, text preview, and deletion
 - **Settings:** clock, brightness, display timeouts, storage status, haptic test, USB Disk Mode, and shutdown
@@ -89,6 +89,7 @@ Keep the Pager on and connected with a USB data cable. If upload does not start,
 /PocketPDA/calendar/events.dat
 /PocketPDA/tasks/tasks.dat
 /PocketPDA/routines/routines.dat
+/PocketPDA/timers/presets.dat
 /PocketPDA/notes/index.dat
 /PocketPDA/notes/00000001.txt
 /PocketPDA/habits/habits.dat
@@ -153,6 +154,12 @@ Open **Settings**, choose **SHUT DOWN**, and confirm. USB-C must be disconnected
 
 ## Project status
 
-This is early hardware-specific firmware. Back up important data before testing new builds. LoRa, GPS, NFC, motion sensing, and audio are deliberately not initialized in v0.2.0.
+## Timers and alarms
+
+Open **TIMERS** from the launcher. The first run creates **Focus 15**, **Break 5**, and **Leave in 10** presets. Press a timer to start it; its finish time is saved on the microSD card, so display sleep or an accidental reboot does not lose it. Press **EDIT** to change its name, duration, or vibration style.
+
+Choose **+ NEW** and select **Daily alarm** to add a clock alarm. Enter a 24-hour time such as `07:30`. Pressing an alarm in the list toggles it on or off. Timers and alarms continue to be checked while the display is off, but a fully powered-down pager cannot sound until it is switched on again.
+
+This is early hardware-specific firmware. Back up important data before testing new builds. LoRa, GPS, NFC, motion sensing, and audio are deliberately not initialized in v0.2.1.
 
 Contributions and device-testing reports are welcome, especially improvements that make the interface calmer, clearer, and easier to operate without a phone.

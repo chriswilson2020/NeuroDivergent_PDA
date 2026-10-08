@@ -12,6 +12,7 @@
 #include "apps/transition/TransitionApp.h"
 #include "core/PowerManager.h"
 #include "core/ReminderService.h"
+#include "core/TimerService.h"
 #include "core/BackupService.h"
 #include "core/LowBatteryService.h"
 #include "data/CalendarStore.h"
@@ -20,6 +21,7 @@
 #include "data/RoutineStore.h"
 #include "data/SettingsStore.h"
 #include "data/TaskStore.h"
+#include "data/TimerStore.h"
 #include "hardware/HardwareManager.h"
 #include "hardware/InputManager.h"
 #include "hardware/UsbDiskService.h"
@@ -35,6 +37,7 @@ static HabitStore habitStore(hardware.storage, hardware.spi);
 static TaskStore taskStore(hardware.storage, hardware.spi);
 static NoteStore noteStore(hardware.storage, hardware.spi);
 static RoutineStore routineStore(hardware.storage, hardware.spi);
+static TimerStore timerStore(hardware.storage, hardware.spi);
 static UsbDiskService usbDisk(hardware.storage, hardware.spi);
 static BackupService backup(hardware.storage, hardware.spi, settingsStore);
 static TodayApp today(hardware.rtc, calendarStore);
@@ -44,7 +47,8 @@ static CalendarApp calendar(calendarStore, hardware.rtc);
 static TasksApp tasks(taskStore, hardware.rtc);
 static NotesApp notes(noteStore);
 static RoutinesApp routines(routineStore, hardware.haptic);
-static ClockApp clockApp(hardware.rtc);
+static TimerService timerService;
+static ClockApp clockApp(hardware.rtc, timerStore, timerService);
 static HabitsApp habits(habitStore, hardware.rtc, hardware.haptic);
 static FilesApp files(hardware.storage, hardware.spi);
 static SettingsApp settings(settingsStore, hardware, power, hardware.rtc, shell, usbDisk, backup);
@@ -59,6 +63,8 @@ static void dataRestored(void *) {
     taskStore.load();
     noteStore.load();
     routineStore.load();
+    timerStore.load();
+    timerService.reload();
     power.setConfig(settingsStore.powerConfig());
     hardware.setBrightness(settingsStore.value().brightness);
 }
@@ -73,6 +79,8 @@ static void usbDiskFinished(void *, bool storageReady) {
     taskStore.load();
     noteStore.load();
     routineStore.load();
+    timerStore.load();
+    timerService.reload();
     const size_t eventImports = calendarStore.lastImportCount();
     const size_t taskImports = taskStore.lastImportCount();
     const size_t routineImports = routineStore.lastImportCount();
@@ -88,7 +96,7 @@ static void usbDiskFinished(void *, bool storageReady) {
 void setup() {
     Serial.begin(115200);
     delay(100);
-    Serial.println("\nPocketPDA v0.2.0");
+    Serial.println("\nPocketPDA v0.2.1");
     const bool essentialHardwareReady = hardware.begin();
     settingsStore.load();
     const bool storageReady = hardware.storage.mount(hardware.spi);
@@ -98,6 +106,7 @@ void setup() {
         taskStore.load();
         noteStore.load();
         routineStore.load();
+        timerStore.load();
     }
     shell.begin(hardware, today, transition, capture, calendar, tasks, routines, notes, clockApp, habits, files, settings);
     usbDisk.setFinishedCallback(usbDiskFinished, nullptr);
@@ -105,6 +114,7 @@ void setup() {
     input.begin(shell);
     power.begin(hardware, settingsStore.powerConfig());
     reminders.begin(calendarStore, taskStore, hardware.rtc, shell);
+    timerService.begin(timerStore, hardware.rtc, shell);
     lowBattery.begin(hardware.battery, shell);
     if (calendarStore.lastImportCount() || taskStore.lastImportCount() || routineStore.lastImportCount()) {
         char message[96]; snprintf(message, sizeof(message), "%u events, %u tasks and %u routines imported.",
@@ -122,6 +132,7 @@ void loop() {
         shell.update();
         power.update();
         reminders.update();
+        timerService.update();
         lowBattery.update();
     }
     lv_timer_handler();

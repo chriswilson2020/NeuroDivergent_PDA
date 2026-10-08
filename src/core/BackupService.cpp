@@ -53,7 +53,7 @@ bool BackupService::create() {
         ok = backup.write(reinterpret_cast<const uint8_t *>(&header), sizeof(header)) == sizeof(header);
         uint16_t count = 0;
         if (ok) ok = appendSettings(backup, count);
-        static const char *directories[] = {"calendar", "tasks", "habits", "routines", "notes", "files"};
+        static const char *directories[] = {"calendar", "tasks", "habits", "routines", "timers", "notes", "files"};
         for (const char *directory : directories) {
             if (!ok) break;
             char full[64]; snprintf(full, sizeof(full), "/PocketPDA/%s", directory);
@@ -176,7 +176,7 @@ bool BackupService::restore() {
 bool BackupService::allowedPath(const char *path) const {
     if (!path || !path[0] || path[0] == '/' || strstr(path, "..")) return false;
     if (!strcmp(path, kSettingsName)) return true;
-    static const char *prefixes[] = {"calendar/", "tasks/", "habits/", "routines/", "notes/", "files/"};
+    static const char *prefixes[] = {"calendar/", "tasks/", "habits/", "routines/", "timers/", "notes/", "files/"};
     for (const char *prefix : prefixes) if (!strncmp(path, prefix, strlen(prefix))) return true;
     return false;
 }
@@ -210,7 +210,7 @@ bool BackupService::extract(File &backup) {
     if (!readExact(backup, &header, sizeof(header))) return false;
     removeTree(kStageRoot);
     if (!SD.mkdir(kStageRoot)) { fail("Could not create restore staging."); return false; }
-    static const char *directories[] = {"calendar", "tasks", "habits", "routines", "notes", "files"};
+    static const char *directories[] = {"calendar", "tasks", "habits", "routines", "timers", "notes", "files"};
     for (const char *directory : directories) {
         char path[80]; snprintf(path, sizeof(path), "%s/%s", kStageRoot, directory);
         if (!SD.mkdir(path)) { fail("Could not prepare restore folders."); return false; }
@@ -272,7 +272,7 @@ bool BackupService::removeTree(const char *path) {
 }
 
 bool BackupService::swapStaging() {
-    static const char *directories[] = {"calendar", "tasks", "habits", "routines", "notes", "files"};
+    static const char *directories[] = {"calendar", "tasks", "habits", "routines", "timers", "notes", "files"};
     static constexpr size_t kDirectoryCount = sizeof(directories) / sizeof(directories[0]);
     bool oldMoved[kDirectoryCount]{};
     bool newMoved[kDirectoryCount]{};
