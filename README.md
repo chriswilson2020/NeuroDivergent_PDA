@@ -159,6 +159,10 @@ Open **Settings**, choose **SHUT DOWN**, and confirm. USB-C must be disconnected
 
 ## Project status
 
+### Next release
+
+- Distinguish **USB connected**, **actively charging**, and **charge complete/idle** in the status bar instead of showing the charging symbol only while current is flowing.
+
 ## Timers and alarms
 
 Open **TIMERS** from the launcher. The first run creates **Focus 15**, **Break 5**, and **Leave in 10** presets. Press a timer to start it; its finish time is saved on the microSD card, so display sleep or an accidental reboot does not lose it. Press **EDIT** to change its name, duration, or vibration style.
