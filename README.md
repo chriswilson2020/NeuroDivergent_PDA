@@ -28,7 +28,7 @@ This is an assistive organizer, not a medical device, treatment, or substitute f
 - **Files:** microSD folder browser, text preview, and deletion
 - **Settings:** clock, brightness, display timeouts, storage status, haptic test, USB Disk Mode, and shutdown
 - **Portable backup:** one checksummed file for calendar, tasks, habits, notes, files, and device settings
-- Persistent status bar, launcher, haptic notifications, and dim/display-off power states
+- Persistent status bar with charging state, launcher, haptic notifications, low-battery warnings, and dim/display-off power states
 - Versioned, checksummed microSD data and internal nonvolatile settings
 
 Calendar events stay on the card. Only the current and following calendar week are cached in PSRAM; the on-disk format supports up to 65,535 events.
@@ -122,7 +122,12 @@ After boot—or immediately after safely leaving USB Disk Mode—the firmware va
 
 - Calendar reminders fire the configured number of minutes before an event, vibrate, and show its title, room, and time.
 - Task reminders are optional and currently fire at 09:00 on the due date.
+- Every calendar and task reminder offers **DISMISS** and **SNOOZE 5**. Snoozing schedules the alert again five minutes later, including through the RTC alarm.
 - A reminder value of `0` means the event start time; new calendar events default to `5` minutes beforehand.
+
+## Battery alerts
+
+The status bar shows a lightning bolt while the battery is actively charging. During discharge, PocketPDA gives one warning as the battery crosses 20%, 10%, and 5%. Connecting USB power resets the warning cycle.
 
 ## Power off
 
@@ -130,6 +135,6 @@ Open **Settings**, choose **SHUT DOWN**, and confirm. USB-C must be disconnected
 
 ## Project status
 
-This is early hardware-specific firmware. Back up important data before testing new builds. LoRa, GPS, NFC, motion sensing, and audio are deliberately not initialized in v0.1.
+This is early hardware-specific firmware. Back up important data before testing new builds. LoRa, GPS, NFC, motion sensing, and audio are deliberately not initialized in v0.1.0.
 
 Contributions and device-testing reports are welcome, especially improvements that make the interface calmer, clearer, and easier to operate without a phone.

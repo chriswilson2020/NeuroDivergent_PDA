@@ -18,5 +18,6 @@ void BatteryService::update() {
     lastReadMs_ = now;
     if (!instance.gauge.refresh()) return;
     const uint8_t next = constrain(instance.gauge.getStateOfCharge(), 0, 100);
+    valid_ = true;
     if (next != percent_) { percent_ = next; EventBus::instance().publish(SystemEvent::BatteryChanged); }
 }

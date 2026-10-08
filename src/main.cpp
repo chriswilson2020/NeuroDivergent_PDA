@@ -10,6 +10,7 @@
 #include "core/PowerManager.h"
 #include "core/ReminderService.h"
 #include "core/BackupService.h"
+#include "core/LowBatteryService.h"
 #include "data/CalendarStore.h"
 #include "data/HabitStore.h"
 #include "data/NoteStore.h"
@@ -40,6 +41,7 @@ static HabitsApp habits(habitStore, hardware.rtc, hardware.haptic);
 static FilesApp files(hardware.storage, hardware.spi);
 static SettingsApp settings(settingsStore, hardware, power, hardware.rtc, shell, usbDisk, backup);
 static ReminderService reminders;
+static LowBatteryService lowBattery;
 static uint32_t lastMemoryLog = 0;
 
 static void dataRestored(void *) {
@@ -72,7 +74,7 @@ static void usbDiskFinished(void *, bool storageReady) {
 void setup() {
     Serial.begin(115200);
     delay(100);
-    Serial.println("\nPocketPDA v0.1 milestone 3");
+    Serial.println("\nPocketPDA v0.1.0");
     const bool essentialHardwareReady = hardware.begin();
     settingsStore.load();
     const bool storageReady = hardware.storage.mount(hardware.spi);
@@ -88,6 +90,7 @@ void setup() {
     input.begin(shell);
     power.begin(hardware, settingsStore.powerConfig());
     reminders.begin(calendarStore, taskStore, hardware.rtc, shell);
+    lowBattery.begin(hardware.battery, shell);
     if (calendarStore.lastImportCount()) {
         char message[72]; snprintf(message, sizeof(message), "%u events loaded from the SD card.", static_cast<unsigned>(calendarStore.lastImportCount()));
         shell.notifications().show("AGENDA IMPORTED", message);
@@ -102,6 +105,7 @@ void loop() {
         shell.update();
         power.update();
         reminders.update();
+        lowBattery.update();
     }
     lv_timer_handler();
     if (millis() - lastMemoryLog >= 60000) {
