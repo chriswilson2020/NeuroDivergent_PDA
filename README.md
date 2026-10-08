@@ -33,7 +33,7 @@ This is an assistive organizer, not a medical device, treatment, or substitute f
 - **Files:** microSD folder browser, text preview, and deletion
 - **Settings:** clock, brightness, display timeouts, storage status, haptic test, USB Disk Mode, and shutdown
 - **Offline computer editor:** build calendar, task, and routine CSV files without an account or internet connection
-- **macOS companion:** automatically detect PocketPDA in USB Disk Mode, synchronize selected macOS/Outlook calendars, verify backups and restores, and safely eject the device
+- **macOS companion:** automatically detect PocketPDA in USB Disk Mode, synchronize selected macOS/Outlook calendars, request and verify backups, stage verified restores, and safely eject the device
 - **Portable backup:** one checksummed file for calendar, tasks, routines, habits, notes, files, and device settings
 - Persistent status bar with charging state, launcher, haptic notifications, low-battery warnings, and dim/display-off power states; display and keyboard illumination shut down together while alerts remain active
 - Versioned, checksummed microSD data and internal nonvolatile settings
@@ -116,7 +116,7 @@ PocketPDA gives the computer exclusive control of the card during USB Disk Mode.
 
 ## Backup and restore
 
-Open **Settings** and choose **BACKUP**. PocketPDA streams all organizer data into `/PocketPDA/backups/PocketPDA-Backup.ppb` without loading it all into RAM. Then use **USB DISK** to copy that single file to a computer.
+Open **Settings** and choose **BACKUP**. PocketPDA streams all organizer data into `/PocketPDA/backups/PocketPDA-Backup.ppb` without loading it all into RAM. Then use **USB DISK** to copy that single file to a computer. With firmware v0.2.5 or newer, the macOS companion can instead choose **Request Backup & Eject**; the Pager creates the backup after the Mac safely releases the card, then you re-enter USB Disk Mode to download it.
 
 To restore, copy `PocketPDA-Backup.ppb` from the computer back into `/PocketPDA/backups/`, safely eject the volume, leave USB Disk Mode, and choose **RESTORE** in Settings. The complete archive and every file checksum are validated first. Data is extracted into staging directories and swapped into place only after validation succeeds; invalid or incomplete backups are rejected.
 
@@ -145,7 +145,7 @@ The optional calendar `repeat` value is `once`, `daily`, `weekdays`, `weekly`, o
 
 ## macOS companion
 
-Build the native companion with `companion/macos/build.sh`, then open `dist/PocketPDA Companion.app`. The app detects the Pager after **Settings > USB DISK**, can synchronize calendars already available through macOS Calendar, downloads and validates backup archives, validates and stages restores, and safely ejects the microSD volume. See [`companion/README.md`](companion/README.md) for details.
+Build the native companion with `companion/macos/build.sh`, then open `dist/PocketPDA Companion.app`. The app detects the Pager after **Settings > USB DISK**, can synchronize calendars already available through macOS Calendar, request and download validated backup archives, validate and stage restores, and safely eject the microSD volume. See [`companion/README.md`](companion/README.md) for details.
 
 ## Reminder behavior
 
@@ -184,6 +184,6 @@ Open **PACKING** to see the checklist for the next calendar event within 14 days
 
 Choose **TEMPLATES** to create or edit up to 12 reusable lists with six items each. Checks are saved on the microSD card and reset automatically for the next occurrence of that lesson.
 
-This is early hardware-specific firmware. Back up important data before testing new builds. LoRa, GPS, NFC, motion sensing, and audio are deliberately not initialized in v0.2.4.
+This is early hardware-specific firmware. Back up important data before testing new builds. LoRa, GPS, NFC, motion sensing, and audio are deliberately not initialized in v0.2.5.
 
 Contributions and device-testing reports are welcome, especially improvements that make the interface calmer, clearer, and easier to operate without a phone.

@@ -5,7 +5,7 @@ script_dir=${0:A:h}
 repo_root=${script_dir:h:h}
 build_dir="$script_dir/build"
 app_dir="$repo_root/dist/PocketPDA Companion.app"
-zip_path="$repo_root/dist/PocketPDA-Companion-macOS-v0.1.0.zip"
+zip_path="$repo_root/dist/PocketPDA-Companion-macOS-v0.1.1.zip"
 
 mkdir -p "$build_dir" "$app_dir/Contents/MacOS" "$app_dir/Contents/Resources"
 sdk_path="/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk"

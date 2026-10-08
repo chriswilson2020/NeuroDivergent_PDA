@@ -6,7 +6,7 @@ PocketPDA Companion is a native macOS application for a Pager running PocketPDA.
 - a selectable 4, 12, or 26 week synchronization window;
 - preservation of a previous CSV-imported base schedule;
 - manual PocketPDA calendar CSV import;
-- verified backup download and verified restore staging;
+- backup requests initiated from the Mac, verified backup download, and verified restore staging;
 - safe device ejection; and
 - access to the offline organizer editor.
 
@@ -21,6 +21,6 @@ The signed Universal application is created at `dist/PocketPDA Companion.app`. I
 
 ## Safety model
 
-Calendar synchronization writes `/PocketPDA/calendar/import.csv`, which the firmware validates and imports after USB Disk Mode ends. Backups are checksum-validated by the companion before download or restore staging. A staged restore is never applied automatically; the user must eject the device and confirm **RESTORE** on the Pager.
+Calendar synchronization writes `/PocketPDA/calendar/import.csv`, which the firmware validates and imports after USB Disk Mode ends. **Request Backup & Eject** writes a one-shot request before safely ejecting; firmware v0.2.5 or newer consumes it and creates the backup after regaining exclusive microSD access. Re-enter USB Disk Mode when the Pager says **BACKUP READY** to download the verified archive. Backups are checksum-validated by the companion before download or restore staging. A staged restore is never applied automatically; the user must eject the device and confirm **RESTORE** on the Pager.
 
 The initial release uses USB Disk Mode for broad compatibility. A future version can add a framed USB command protocol for fully automatic backup creation without mounting the microSD card.

@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <SD.h>
 #include "apps/calendar/CalendarApp.h"
 #include "apps/assignments/AssignmentsApp.h"
 #include "apps/capture/CaptureApp.h"
@@ -63,6 +64,14 @@ static SettingsApp settings(settingsStore, hardware, power, hardware.rtc, shell,
 static ReminderService reminders;
 static LowBatteryService lowBattery;
 static uint32_t lastMemoryLog = 0;
+static constexpr const char *kBackupRequestPath = "/PocketPDA/commands/backup.request";
+
+static bool consumeBackupRequest() {
+    if (!hardware.storage.mounted()) return false;
+    SPIBusManager::Guard guard(hardware.spi);
+    if (!guard || !SD.exists(kBackupRequestPath)) return false;
+    return SD.remove(kBackupRequestPath);
+}
 
 static void dataRestored(void *) {
     settingsStore.load();
@@ -84,6 +93,7 @@ static void usbDiskFinished(void *, bool storageReady) {
         shell.notifications().show("SD CARD ERROR", "The SD card could not be remounted after USB Disk Mode.");
         return;
     }
+    const bool backupRequested = consumeBackupRequest();
     calendarStore.load();
     assignmentStore.load();
     habitStore.load();
@@ -96,7 +106,10 @@ static void usbDiskFinished(void *, bool storageReady) {
     const size_t eventImports = calendarStore.lastImportCount();
     const size_t taskImports = taskStore.lastImportCount();
     const size_t routineImports = routineStore.lastImportCount();
-    if (eventImports || taskImports || routineImports) {
+    if (backupRequested) {
+        if (backup.create()) shell.notifications().show("BACKUP READY", "Requested by the companion app. Re-enter USB Disk Mode to download it.");
+        else shell.notifications().show("BACKUP FAILED", backup.lastError());
+    } else if (eventImports || taskImports || routineImports) {
         char message[96]; snprintf(message, sizeof(message), "%u events, %u tasks and %u routines imported.",
                                    static_cast<unsigned>(eventImports), static_cast<unsigned>(taskImports), static_cast<unsigned>(routineImports));
         shell.notifications().show("ORGANIZER IMPORTED", message);
@@ -108,7 +121,7 @@ static void usbDiskFinished(void *, bool storageReady) {
 void setup() {
     Serial.begin(115200);
     delay(100);
-    Serial.println("\nPocketPDA v0.2.4");
+    Serial.println("\nPocketPDA v0.2.5");
     const bool essentialHardwareReady = hardware.begin();
     settingsStore.load();
     const bool storageReady = hardware.storage.mount(hardware.spi);

@@ -45,7 +45,9 @@ final class CompanionModel: ObservableObject {
             let values = try? found.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey, .volumeTotalCapacityKey])
             let free = ByteCountFormatter.string(fromByteCount: Int64(values?.volumeAvailableCapacityForImportantUsage ?? 0), countStyle: .file)
             let total = ByteCountFormatter.string(fromByteCount: Int64(values?.volumeTotalCapacity ?? 0), countStyle: .file)
-            detail = "\(found.lastPathComponent)  •  \(free) free of \(total)"
+            let backup = found.appendingPathComponent("PocketPDA/backups/PocketPDA-Backup.ppb")
+            let suffix = FileManager.default.fileExists(atPath: backup.path) ? "  •  backup ready" : ""
+            detail = "\(found.lastPathComponent)  •  \(free) free of \(total)\(suffix)"
         } else {
             status = "PocketPDA not connected"
             detail = "On the Pager choose Settings > USB DISK, then wait for it to appear."
@@ -164,6 +166,19 @@ final class CompanionModel: ObservableObject {
             try data.write(to: destination, options: .atomic)
             detail = "Backup verified and saved to \(destination.lastPathComponent)."
         } catch { showError(error.localizedDescription) }
+    }
+
+    func requestBackup() {
+        guard let pocketRoot, let root = deviceRoot else { return }
+        do {
+            let commandDir = pocketRoot.appendingPathComponent("commands", isDirectory: true)
+            try FileManager.default.createDirectory(at: commandDir, withIntermediateDirectories: true)
+            try Data("backup\n".utf8).write(to: commandDir.appendingPathComponent("backup.request"), options: .atomic)
+            try NSWorkspace.shared.unmountAndEjectDevice(at: root)
+            deviceRoot = nil
+            status = "Backup requested"
+            detail = "The Pager is creating the backup. When it says BACKUP READY, open USB Disk Mode again to download it."
+        } catch { showError("Could not request the backup: \(error.localizedDescription)") }
     }
 
     func stageRestore() {
@@ -292,9 +307,10 @@ struct ContentView: View {
                 VStack(spacing: 16) {
                     GroupBox("Backup and restore") {
                         VStack(alignment: .leading, spacing: 10) {
+                            Button("Request Backup & Eject") { model.requestBackup() }.frame(maxWidth: .infinity, alignment: .leading).disabled(!model.connected)
                             Button("Download Verified Backup…") { model.downloadBackup() }.frame(maxWidth: .infinity, alignment: .leading).disabled(!model.connected)
                             Button("Stage Verified Restore…") { model.stageRestore() }.frame(maxWidth: .infinity, alignment: .leading).disabled(!model.connected)
-                            Text("Create a backup on the Pager before entering USB Disk Mode. Restores require confirmation on the Pager after ejecting.").font(.caption).foregroundStyle(.secondary)
+                            Text("A requested backup is created after ejection. Re-enter USB Disk Mode to download it. Restores require confirmation on the Pager.").font(.caption).foregroundStyle(.secondary)
                         }.padding(8)
                     }
                     GroupBox("Organizer") {
