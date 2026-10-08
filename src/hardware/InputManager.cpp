@@ -20,8 +20,8 @@ void InputManager::begin(Shell &shell) {
     instance.kb.registerKeyCombo(ModifierKey::ALT, 'j', altSymbol<'\''>); instance.kb.registerKeyCombo(ModifierKey::ALT, 'k', altSymbol<'\"'>);
     instance.kb.registerKeyCombo(ModifierKey::ALT, 'l', altLauncherShortcut);
     instance.kb.registerKeyCombo(ModifierKey::ALT, 'z', altSymbol<'_'>); instance.kb.registerKeyCombo(ModifierKey::ALT, 'x', altSymbol<'$'>);
-    instance.kb.registerKeyCombo(ModifierKey::ALT, 'c', altSymbol<';'>); instance.kb.registerKeyCombo(ModifierKey::ALT, 'v', altSymbol<'?'>);
-    instance.kb.registerKeyCombo(ModifierKey::ALT, 'b', altSymbol<'!'>); instance.kb.registerKeyCombo(ModifierKey::ALT, 'n', altSymbol<','>);
+    instance.kb.registerKeyCombo(ModifierKey::ALT, 'c', altCaptureShortcut); instance.kb.registerKeyCombo(ModifierKey::ALT, 'v', altSymbol<'?'>);
+    instance.kb.registerKeyCombo(ModifierKey::ALT, 'b', altSymbol<'!'>); instance.kb.registerKeyCombo(ModifierKey::ALT, 'n', altTransitionShortcut);
     instance.kb.registerKeyCombo(ModifierKey::ALT, 'm', altSymbol<'.'>);
     instance.kb.registerKeyCombo(ModifierKey::ALT, 0x1D, altDeleteShortcut);
     if (lv_indev_t *keyboard = lv_get_keyboard_indev()) {
@@ -32,8 +32,12 @@ bool InputManager::insertIntoFocused(char character) { lv_obj_t *focused=lv_grou
 template<char Character> void InputManager::altSymbol() { insertIntoFocused(Character); }
 void InputManager::todayShortcut() { if (shell_) shell_->goToday(); }
 void InputManager::launcherShortcut() { if (shell_) shell_->toggleLauncher(); }
+void InputManager::captureShortcut() { if (shell_) shell_->goCapture(); }
+void InputManager::transitionShortcut() { if (shell_) shell_->goTransition(); }
 void InputManager::altTodayShortcut() { if(!insertIntoFocused('5'))todayShortcut(); }
 void InputManager::altLauncherShortcut() { if(!insertIntoFocused('@'))launcherShortcut(); }
+void InputManager::altCaptureShortcut() { if(!insertIntoFocused(';'))captureShortcut(); }
+void InputManager::altTransitionShortcut() { if(!insertIntoFocused(','))transitionShortcut(); }
 void InputManager::altDeleteShortcut() { lv_obj_t *focused=lv_group_get_focused(lv_group_get_default());if(focused&&lv_obj_check_type(focused,&lv_textarea_class))lv_textarea_delete_char(focused); }
 void InputManager::keyboardKey(lv_event_t *event) {
     lv_indev_t *keyboard = lv_get_keyboard_indev();

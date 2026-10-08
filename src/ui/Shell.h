@@ -8,10 +8,12 @@ class HardwareManager;
 
 class Shell {
 public:
-    void begin(HardwareManager &hardware, App &todayApp, App &calendarApp, App &tasksApp, App &notesApp,
-               App &clockApp, App &habitsApp, App &filesApp, App &settingsApp);
+    void begin(HardwareManager &hardware, App &todayApp, App &transitionApp, App &captureApp, App &calendarApp,
+               App &tasksApp, App &routinesApp, App &notesApp, App &clockApp, App &habitsApp, App &filesApp, App &settingsApp);
     void update();
     void goToday();
+    void goTransition();
+    void goCapture();
     void back();
     void toggleLauncher();
     void launcherAction(const char *id, const char *label);

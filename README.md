@@ -20,14 +20,18 @@ This is an assistive organizer, not a medical device, treatment, or substitute f
 ## Current features
 
 - **Today:** current date, upcoming calendar events, and task summary
-- **Calendar:** day agenda, create/edit/delete, reminders, weekly recurrence, and bulk CSV import
-- **Tasks:** priorities, due dates, optional 09:00 reminders, completion, and weekly rollover
+- **Transition:** a large live countdown to the next event, with Pack Up and Leave Now phases
+- **Quick Capture:** save a thought immediately as a task or note
+- **Calendar:** day agenda, create/edit/delete, reminders, flexible recurrence, and bulk CSV import
+- **Tasks:** priorities, due dates, optional 09:00 reminders, and daily, weekday, weekly, or monthly recurrence
+- **Routines:** reusable, one-step-at-a-time checklists for predictable transitions and daily activities
 - **Notes:** compact note list and editor with separate note-body storage
 - **Clock:** RTC-backed date/time and stopwatch
 - **Habits + Pet:** editable daily habits, streaks, and an animated companion that reacts to progress
 - **Files:** microSD folder browser, text preview, and deletion
 - **Settings:** clock, brightness, display timeouts, storage status, haptic test, USB Disk Mode, and shutdown
-- **Portable backup:** one checksummed file for calendar, tasks, habits, notes, files, and device settings
+- **Offline computer editor:** build calendar, task, and routine CSV files without an account or internet connection
+- **Portable backup:** one checksummed file for calendar, tasks, routines, habits, notes, files, and device settings
 - Persistent status bar with charging state, launcher, haptic notifications, low-battery warnings, and dim/display-off power states
 - Versioned, checksummed microSD data and internal nonvolatile settings
 
@@ -76,13 +80,15 @@ Keep the Pager on and connected with a USB data cable. If upload does not start,
 - Hold **Space** plus `Q` through `P` for numbers `1` through `0`; other letter keys produce their printed symbols.
 - Hold **CAP** plus a letter for uppercase.
 - The orange **Alt** key mirrors the number/symbol layer while editing.
-- Outside text fields, **Alt+L** opens the launcher and **Alt+T** opens Today.
+- Outside text fields, **Alt+L** opens the launcher, **Alt+T** opens Today, **Alt+N** opens Transition, and **Alt+C** opens Quick Capture.
+- Inside text fields, those same keys type their printed symbols instead of launching an app.
 
 ## Storage layout
 
 ```text
 /PocketPDA/calendar/events.dat
 /PocketPDA/tasks/tasks.dat
+/PocketPDA/routines/routines.dat
 /PocketPDA/notes/index.dat
 /PocketPDA/notes/00000001.txt
 /PocketPDA/habits/habits.dat
@@ -99,7 +105,7 @@ Tasks are bounded at 64 records, Habits at 8 daily habits, Notes at 32 records, 
 4. Copy files normally.
 5. Eject the SD volume on the computer before disconnecting or resetting the Pager.
 
-PocketPDA gives the computer exclusive control of the card during USB Disk Mode. After a safe eject, it remounts the card and reloads Calendar, Habits, Tasks, and Notes automatically.
+PocketPDA gives the computer exclusive control of the card during USB Disk Mode. After a safe eject, it remounts the card and reloads all organizer data automatically.
 
 ## Backup and restore
 
@@ -107,16 +113,28 @@ Open **Settings** and choose **BACKUP**. PocketPDA streams all organizer data in
 
 To restore, copy `PocketPDA-Backup.ppb` from the computer back into `/PocketPDA/backups/`, safely eject the volume, leave USB Disk Mode, and choose **RESTORE** in Settings. The complete archive and every file checksum are validated first. Data is extracted into staging directories and swapped into place only after validation succeeds; invalid or incomplete backups are rejected.
 
-## Bulk calendar import
+## Offline computer editor and bulk import
 
-Copy a CSV to `/PocketPDA/calendar/import.csv`. A generic example is included at [`examples/calendar-import.csv`](examples/calendar-import.csv).
+Open [`tools/pocketpda-editor.html`](tools/pocketpda-editor.html) in any modern browser. Add calendar events, tasks, and routines, then download the CSV for each section you used. The editor is one self-contained file, works offline, and does not upload personal data.
 
-```csv
-date,start,end,title,location,reminder_minutes
-2026-10-08,08:30,09:30,First lesson,Room 12,5
+In **USB DISK** mode, copy the downloaded files using these names:
+
+```text
+calendar-import.csv  -> /PocketPDA/calendar/import.csv
+tasks-import.csv     -> /PocketPDA/tasks/import.csv
+routines-import.csv  -> /PocketPDA/routines/import.csv
 ```
 
-After boot—or immediately after safely leaving USB Disk Mode—the firmware validates the complete file, replaces the calendar, stores it in the checksummed native format, and renames the source to `last-import.csv`. Up to 65,535 rows are accepted. Fields must not contain commas.
+Safely eject the volume and leave USB Disk Mode. PocketPDA validates each complete file, converts it to the checksummed native format, and renames it to `last-import.csv`. Calendar and task imports replace those lists; a routine import replaces the routine list. Do not put commas in fields; the computer editor automatically converts them to semicolons.
+
+Calendar CSVs can also be created manually. A generic example is included at [`examples/calendar-import.csv`](examples/calendar-import.csv).
+
+```csv
+date,start,end,title,location,reminder_minutes,repeat
+2026-10-08,08:30,09:30,First lesson,Room 12,5,weekdays
+```
+
+The optional calendar `repeat` value is `once`, `daily`, `weekdays`, `weekly`, or `monthly`. The calendar supports up to 65,535 on-disk events while caching only the current and following week in memory. Tasks support up to 64 entries and routines support up to 12 routines with eight steps each.
 
 ## Reminder behavior
 
@@ -135,6 +153,6 @@ Open **Settings**, choose **SHUT DOWN**, and confirm. USB-C must be disconnected
 
 ## Project status
 
-This is early hardware-specific firmware. Back up important data before testing new builds. LoRa, GPS, NFC, motion sensing, and audio are deliberately not initialized in v0.1.0.
+This is early hardware-specific firmware. Back up important data before testing new builds. LoRa, GPS, NFC, motion sensing, and audio are deliberately not initialized in v0.2.0.
 
 Contributions and device-testing reports are welcome, especially improvements that make the interface calmer, clearer, and easier to operate without a phone.

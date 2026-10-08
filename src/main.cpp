@@ -1,12 +1,15 @@
 #include <Arduino.h>
 #include "apps/calendar/CalendarApp.h"
+#include "apps/capture/CaptureApp.h"
 #include "apps/clock/ClockApp.h"
 #include "apps/files/FilesApp.h"
 #include "apps/habits/HabitsApp.h"
 #include "apps/notes/NotesApp.h"
+#include "apps/routines/RoutinesApp.h"
 #include "apps/settings/SettingsApp.h"
 #include "apps/tasks/TasksApp.h"
 #include "apps/today/TodayApp.h"
+#include "apps/transition/TransitionApp.h"
 #include "core/PowerManager.h"
 #include "core/ReminderService.h"
 #include "core/BackupService.h"
@@ -14,6 +17,7 @@
 #include "data/CalendarStore.h"
 #include "data/HabitStore.h"
 #include "data/NoteStore.h"
+#include "data/RoutineStore.h"
 #include "data/SettingsStore.h"
 #include "data/TaskStore.h"
 #include "hardware/HardwareManager.h"
@@ -30,12 +34,16 @@ static CalendarStore calendarStore(hardware.storage, hardware.spi);
 static HabitStore habitStore(hardware.storage, hardware.spi);
 static TaskStore taskStore(hardware.storage, hardware.spi);
 static NoteStore noteStore(hardware.storage, hardware.spi);
+static RoutineStore routineStore(hardware.storage, hardware.spi);
 static UsbDiskService usbDisk(hardware.storage, hardware.spi);
 static BackupService backup(hardware.storage, hardware.spi, settingsStore);
 static TodayApp today(hardware.rtc, calendarStore);
+static TransitionApp transition(hardware.rtc, calendarStore);
+static CaptureApp capture(taskStore, noteStore, hardware.rtc);
 static CalendarApp calendar(calendarStore, hardware.rtc);
 static TasksApp tasks(taskStore, hardware.rtc);
 static NotesApp notes(noteStore);
+static RoutinesApp routines(routineStore, hardware.haptic);
 static ClockApp clockApp(hardware.rtc);
 static HabitsApp habits(habitStore, hardware.rtc, hardware.haptic);
 static FilesApp files(hardware.storage, hardware.spi);
@@ -50,6 +58,7 @@ static void dataRestored(void *) {
     habitStore.load();
     taskStore.load();
     noteStore.load();
+    routineStore.load();
     power.setConfig(settingsStore.powerConfig());
     hardware.setBrightness(settingsStore.value().brightness);
 }
@@ -63,18 +72,23 @@ static void usbDiskFinished(void *, bool storageReady) {
     habitStore.load();
     taskStore.load();
     noteStore.load();
-    if (calendarStore.lastImportCount()) {
-        char message[72]; snprintf(message, sizeof(message), "%u events imported and all data reloaded.", static_cast<unsigned>(calendarStore.lastImportCount()));
-        shell.notifications().show("AGENDA IMPORTED", message);
+    routineStore.load();
+    const size_t eventImports = calendarStore.lastImportCount();
+    const size_t taskImports = taskStore.lastImportCount();
+    const size_t routineImports = routineStore.lastImportCount();
+    if (eventImports || taskImports || routineImports) {
+        char message[96]; snprintf(message, sizeof(message), "%u events, %u tasks and %u routines imported.",
+                                   static_cast<unsigned>(eventImports), static_cast<unsigned>(taskImports), static_cast<unsigned>(routineImports));
+        shell.notifications().show("ORGANIZER IMPORTED", message);
     } else {
-        shell.notifications().show("USB DISK FINISHED", "SD card ejected safely. Calendar, habits, tasks, and notes reloaded.");
+        shell.notifications().show("USB DISK FINISHED", "SD card ejected safely. All organizer data was reloaded.");
     }
 }
 
 void setup() {
     Serial.begin(115200);
     delay(100);
-    Serial.println("\nPocketPDA v0.1.0");
+    Serial.println("\nPocketPDA v0.2.0");
     const bool essentialHardwareReady = hardware.begin();
     settingsStore.load();
     const bool storageReady = hardware.storage.mount(hardware.spi);
@@ -83,19 +97,22 @@ void setup() {
         habitStore.load();
         taskStore.load();
         noteStore.load();
+        routineStore.load();
     }
-    shell.begin(hardware, today, calendar, tasks, notes, clockApp, habits, files, settings);
+    shell.begin(hardware, today, transition, capture, calendar, tasks, routines, notes, clockApp, habits, files, settings);
     usbDisk.setFinishedCallback(usbDiskFinished, nullptr);
     backup.setRestoredCallback(dataRestored, nullptr);
     input.begin(shell);
     power.begin(hardware, settingsStore.powerConfig());
     reminders.begin(calendarStore, taskStore, hardware.rtc, shell);
     lowBattery.begin(hardware.battery, shell);
-    if (calendarStore.lastImportCount()) {
-        char message[72]; snprintf(message, sizeof(message), "%u events loaded from the SD card.", static_cast<unsigned>(calendarStore.lastImportCount()));
-        shell.notifications().show("AGENDA IMPORTED", message);
+    if (calendarStore.lastImportCount() || taskStore.lastImportCount() || routineStore.lastImportCount()) {
+        char message[96]; snprintf(message, sizeof(message), "%u events, %u tasks and %u routines imported.",
+                                   static_cast<unsigned>(calendarStore.lastImportCount()), static_cast<unsigned>(taskStore.lastImportCount()),
+                                   static_cast<unsigned>(routineStore.lastImportCount()));
+        shell.notifications().show("ORGANIZER IMPORTED", message);
     } else if (!essentialHardwareReady) shell.notifications().show("HARDWARE WARNING", "One or more essential devices were not detected. See the serial log.");
-    else if (!storageReady) shell.notifications().show("STORAGE WARNING", "microSD was not mounted. Calendar, habits, tasks, and notes cannot be saved.");
+    else if (!storageReady) shell.notifications().show("STORAGE WARNING", "microSD was not mounted. Organizer data cannot be saved.");
 }
 
 void loop() {

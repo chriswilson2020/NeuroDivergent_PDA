@@ -5,8 +5,8 @@
 #include <cstdio>
 #include <cstring>
 
-void Shell::begin(HardwareManager &hardware, App &todayApp, App &calendarApp, App &tasksApp, App &notesApp,
-                  App &clockApp, App &habitsApp, App &filesApp, App &settingsApp) {
+void Shell::begin(HardwareManager &hardware, App &todayApp, App &transitionApp, App &captureApp, App &calendarApp,
+                  App &tasksApp, App &routinesApp, App &notesApp, App &clockApp, App &habitsApp, App &filesApp, App &settingsApp) {
     hardware_ = &hardware;
     Theme::apply();
     lv_obj_t *screen = lv_screen_active();
@@ -14,13 +14,15 @@ void Shell::begin(HardwareManager &hardware, App &todayApp, App &calendarApp, Ap
     lv_obj_add_event_cb(screen, screenKey, LV_EVENT_KEY, this);
     lv_obj_t *statusHost = lv_obj_create(screen); lv_obj_set_pos(statusHost, 0, 0); status_.create(statusHost, hardware.rtc, hardware.battery);
     appArea_ = lv_obj_create(screen); lv_obj_set_pos(appArea_, 0, 28); lv_obj_set_size(appArea_, LV_PCT(100), 194); lv_obj_set_style_pad_all(appArea_, 0, 0); lv_obj_set_style_border_width(appArea_, 0, 0); lv_obj_set_style_radius(appArea_, 0, 0); lv_obj_set_scrollable(appArea_, false);
-    apps_.begin(appArea_); apps_.registerApp(&todayApp); apps_.registerApp(&calendarApp); apps_.registerApp(&tasksApp); apps_.registerApp(&notesApp); apps_.registerApp(&clockApp); apps_.registerApp(&habitsApp); apps_.registerApp(&filesApp); apps_.registerApp(&settingsApp);
+    apps_.begin(appArea_); apps_.registerApp(&todayApp); apps_.registerApp(&transitionApp); apps_.registerApp(&captureApp); apps_.registerApp(&calendarApp); apps_.registerApp(&tasksApp); apps_.registerApp(&routinesApp); apps_.registerApp(&notesApp); apps_.registerApp(&clockApp); apps_.registerApp(&habitsApp); apps_.registerApp(&filesApp); apps_.registerApp(&settingsApp);
     launcher_.create(appArea_, *this);
     notifications_.begin(screen, hardware.haptic);
     goToday();
 }
 void Shell::update() { status_.update(); status_.setNotification(notifications_.active()); }
 void Shell::goToday() { launcher_.hide(); apps_.launch("today"); }
+void Shell::goTransition() { launcher_.hide(); apps_.launch("transition"); }
+void Shell::goCapture() { launcher_.hide(); apps_.launch("capture"); }
 void Shell::back() {
     if (notifications_.active()) notifications_.dismiss();
     else if (launcher_.visible()) launcher_.hide();

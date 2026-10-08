@@ -11,7 +11,9 @@ struct CalendarEvent {
     uint8_t month = 1, day = 1;
     uint8_t startHour = 9, startMinute = 0, endHour = 10, endMinute = 0;
     uint16_t reminderMinutes = 5;
-    uint8_t weekly = 0;
+    // 0=once, 1=legacy weekly, 2=monthly, 0x80|weekday mask=selected days.
+    // Weekday mask uses bit 0=Sunday through bit 6=Saturday.
+    uint8_t recurrence = 0;
     char title[40]{};
     char location[20]{};
 };
@@ -31,6 +33,7 @@ public:
     bool remove(uint32_t id);
     bool occursOn(const CalendarEvent &event, int year, int month, int day) const;
     bool nextReminderAfter(time_t now, time_t &trigger);
+    static const char *recurrenceLabel(uint8_t recurrence);
 
 private:
     bool importCsv(const char *path);

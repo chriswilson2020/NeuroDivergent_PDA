@@ -11,6 +11,9 @@
 namespace {
 constexpr uint32_t kMagic = 0x43414C31; // CAL1
 constexpr const char *kDataPath = "/PocketPDA/calendar/events.dat";
+constexpr uint8_t kDaysMarker = 0x80;
+constexpr uint8_t kEveryDayMask = 0x7F;
+constexpr uint8_t kWeekdayMask = 0x3E;
 
 uint32_t checksumUpdate(uint32_t checksum, const uint8_t *data, size_t size) {
     for (size_t i = 0; i < size; ++i) { checksum ^= data[i]; checksum *= 16777619u; }
@@ -85,7 +88,7 @@ bool CalendarStore::reserveCache(size_t required) {
 }
 
 bool CalendarStore::eventFallsInWindow(const CalendarEvent &event) const {
-    if (!event.weekly) { const time_t date = dateEpoch(event.year, event.month, event.day); return date >= windowStart_ && date < windowEnd_; }
+    if (!event.recurrence) { const time_t date = dateEpoch(event.year, event.month, event.day); return date >= windowStart_ && date < windowEnd_; }
     for (int offset = 0; offset < 14; ++offset) {
         struct tm day{}; time_t epoch = windowStart_; day.tm_year = 0; localtime_r(&epoch, &day); day.tm_mday += offset; day.tm_hour = 12; day.tm_isdst = -1; mktime(&day);
         if (occursOn(event, day.tm_year + 1900, day.tm_mon + 1, day.tm_mday)) return true;
@@ -181,10 +184,24 @@ bool CalendarStore::remove(uint32_t id) {
 }
 
 bool CalendarStore::occursOn(const CalendarEvent &event, int year, int month, int day) const {
-    if (!event.weekly) return event.year == year && event.month == month && event.day == day;
+    if (!event.recurrence) return event.year == year && event.month == month && event.day == day;
     struct tm base{}; base.tm_year = event.year - 1900; base.tm_mon = event.month - 1; base.tm_mday = event.day; base.tm_hour = 12; base.tm_isdst = -1; mktime(&base);
     struct tm query{}; query.tm_year = year - 1900; query.tm_mon = month - 1; query.tm_mday = day; query.tm_hour = 12; query.tm_isdst = -1; mktime(&query);
-    return query.tm_wday == base.tm_wday && difftime(mktime(&query), mktime(&base)) >= 0;
+    if (difftime(mktime(&query), mktime(&base)) < 0) return false;
+    if (event.recurrence == 1) return query.tm_wday == base.tm_wday;
+    if (event.recurrence == 2) return query.tm_mday == base.tm_mday;
+    if (event.recurrence & kDaysMarker) return event.recurrence & (1u << query.tm_wday);
+    return false;
+}
+
+const char *CalendarStore::recurrenceLabel(uint8_t recurrence) {
+    if (!recurrence) return "";
+    if (recurrence == 1) return "W";
+    if (recurrence == 2) return "M";
+    const uint8_t mask = recurrence & 0x7F;
+    if (mask == kEveryDayMask) return "D";
+    if (mask == kWeekdayMask) return "WD";
+    return "R";
 }
 
 bool CalendarStore::nextReminderAfter(time_t now, time_t &trigger) {
@@ -199,15 +216,25 @@ bool CalendarStore::nextReminderAfter(time_t now, time_t &trigger) {
         CalendarEvent event{};
         if (file.read(reinterpret_cast<uint8_t *>(&event), sizeof(event)) != sizeof(event)) { file.close(); return false; }
         checksum = checksumUpdate(checksum, reinterpret_cast<const uint8_t *>(&event), sizeof(event));
-        struct tm occurrence{}; occurrence.tm_year = event.year - 1900; occurrence.tm_mon = event.month - 1; occurrence.tm_mday = event.day;
-        occurrence.tm_hour = event.startHour; occurrence.tm_min = event.startMinute; occurrence.tm_isdst = -1;
-        time_t candidate = mktime(&occurrence) - static_cast<time_t>(event.reminderMinutes) * 60;
-        if (event.weekly && candidate <= now) {
-            const time_t delta = now - candidate;
-            const int weeks = static_cast<int>(delta / (7 * 86400)) + 1;
-            occurrence.tm_mday += weeks * 7; occurrence.tm_isdst = -1;
+        struct tm occurrence{};
+        time_t candidate = 0;
+        if (!event.recurrence) {
+            occurrence.tm_year = event.year - 1900; occurrence.tm_mon = event.month - 1; occurrence.tm_mday = event.day;
+            occurrence.tm_hour = event.startHour; occurrence.tm_min = event.startMinute; occurrence.tm_isdst = -1;
             candidate = mktime(&occurrence) - static_cast<time_t>(event.reminderMinutes) * 60;
-            while (candidate <= now) { occurrence.tm_mday += 7; occurrence.tm_isdst = -1; candidate = mktime(&occurrence) - static_cast<time_t>(event.reminderMinutes) * 60; }
+        } else {
+            time_t search = now - 86400;
+            for (int offset = 0; offset < 40; ++offset) {
+                localtime_r(&search, &occurrence);
+                occurrence.tm_mday += offset;
+                occurrence.tm_hour = event.startHour; occurrence.tm_min = event.startMinute; occurrence.tm_sec = 0; occurrence.tm_isdst = -1;
+                const time_t start = mktime(&occurrence);
+                if (occursOn(event, occurrence.tm_year + 1900, occurrence.tm_mon + 1, occurrence.tm_mday)) {
+                    const time_t possible = start - static_cast<time_t>(event.reminderMinutes) * 60;
+                    if (possible > now) { candidate = possible; break; }
+                }
+                occurrence = {};
+            }
         }
         if (candidate > now && (!trigger || candidate < trigger)) trigger = candidate;
     }
@@ -232,9 +259,9 @@ bool CalendarStore::importCsv(const char *path) {
         if (firstLine) { firstLine = false; if (!strncmp(line, "date,", 5)) continue; }
         if (!line[0] || line[0] == '#') continue;
         if (imported >= UINT16_MAX) { valid = false; break; }
-        char *fields[6]{}; size_t fieldCount = 0; char *cursor = line;
-        while (fieldCount < 6) { fields[fieldCount++] = cursor; char *comma = strchr(cursor, ','); if (!comma) break; *comma = 0; cursor = comma + 1; }
-        if (fieldCount != 6) { valid = false; break; }
+        char *fields[7]{}; size_t fieldCount = 0; char *cursor = line;
+        while (fieldCount < 7) { fields[fieldCount++] = cursor; char *comma = strchr(cursor, ','); if (!comma) break; *comma = 0; cursor = comma + 1; }
+        if (fieldCount < 6) { valid = false; break; }
         CalendarEvent event{}; int year, month, day, sh, sm, eh, em, reminder;
         if (sscanf(fields[0], "%d-%d-%d", &year, &month, &day) != 3 || sscanf(fields[1], "%d:%d", &sh, &sm) != 2 ||
             sscanf(fields[2], "%d:%d", &eh, &em) != 2 || sscanf(fields[5], "%d", &reminder) != 1 ||
@@ -243,6 +270,12 @@ bool CalendarStore::importCsv(const char *path) {
         event.id = imported + 1; event.year = year; event.month = month; event.day = day;
         event.startHour = sh; event.startMinute = sm; event.endHour = eh; event.endMinute = em;
         event.reminderMinutes = constrain(reminder, 0, 1440); strlcpy(event.title, fields[3], sizeof(event.title)); strlcpy(event.location, fields[4], sizeof(event.location));
+        if (fieldCount == 7) {
+            if (!strcmp(fields[6], "weekly")) event.recurrence = 1;
+            else if (!strcmp(fields[6], "monthly")) event.recurrence = 2;
+            else if (!strcmp(fields[6], "daily")) event.recurrence = kDaysMarker | kEveryDayMask;
+            else if (!strcmp(fields[6], "weekdays")) event.recurrence = kDaysMarker | kWeekdayMask;
+        }
         if (!event.title[0] || output.write(reinterpret_cast<const uint8_t *>(&event), sizeof(event)) != sizeof(event)) { valid = false; break; }
         checksum = checksumUpdate(checksum, reinterpret_cast<const uint8_t *>(&event), sizeof(event)); ++imported;
     }
