@@ -5,7 +5,7 @@ script_dir=${0:A:h}
 repo_root=${script_dir:h:h}
 build_dir="$script_dir/build"
 app_dir="$repo_root/dist/PocketPDA Companion.app"
-zip_path="$repo_root/dist/PocketPDA-Companion-macOS-v0.1.2.zip"
+zip_path="$repo_root/dist/PocketPDA-Companion-macOS-v0.1.3.zip"
 
 mkdir -p "$build_dir" "$app_dir/Contents/MacOS" "$app_dir/Contents/Resources"
 sdk_path="/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk"
@@ -31,9 +31,8 @@ codesign --force --deep --sign - "$app_dir"
 rm -f "$zip_path"
 ditto -c -k --norsrc --keepParent "$app_dir" "$zip_path"
 # File Provider can reapply Finder metadata while ditto reads an app on Desktop.
-# Remove it and refresh the local signature so both the app and ZIP verify.
+# Remove it again; these metadata attributes are not part of the signature.
 xattr -d com.apple.FinderInfo "$app_dir" 2>/dev/null || true
 xattr -d 'com.apple.fileprovider.fpfs#P' "$app_dir" 2>/dev/null || true
-codesign --force --deep --sign - "$app_dir"
 echo "$app_dir"
 echo "$zip_path"

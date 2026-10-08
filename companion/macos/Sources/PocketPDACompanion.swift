@@ -23,8 +23,13 @@ final class CompanionModel: ObservableObject {
 
     private let eventStore = EKEventStore()
     private var scanTimer: Timer?
+    private var pendingBackupDestination: URL?
+    private let pendingBackupKey = "PendingBackupDestination"
 
     init() {
+        if let path = UserDefaults.standard.string(forKey: pendingBackupKey) {
+            pendingBackupDestination = URL(fileURLWithPath: path)
+        }
         scan()
         scanTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.scan() }
@@ -48,6 +53,7 @@ final class CompanionModel: ObservableObject {
             let backup = found.appendingPathComponent("PocketPDA/backups/PocketPDA-Backup.ppb")
             let suffix = FileManager.default.fileExists(atPath: backup.path) ? "  •  backup ready" : ""
             detail = "\(found.lastPathComponent)  •  \(free) free of \(total)\(suffix)"
+            completePendingBackupIfReady()
         } else {
             status = "PocketPDA not connected"
             detail = "On the Pager choose Settings > USB DISK, then wait for it to appear."
@@ -170,15 +176,50 @@ final class CompanionModel: ObservableObject {
 
     func requestBackup() {
         guard let pocketRoot, let root = deviceRoot else { return }
+        let formatter = DateFormatter(); formatter.dateFormat = "yyyy-MM-dd-HHmm"
+        let panel = NSSavePanel(); panel.title = "Choose where the new PocketPDA backup will be saved"; panel.nameFieldStringValue = "PocketPDA-\(formatter.string(from: Date())).ppb"
+        guard panel.runModal() == .OK, let destination = panel.url else { return }
         do {
+            let fm = FileManager.default
+            let backupDir = pocketRoot.appendingPathComponent("backups", isDirectory: true)
+            try fm.createDirectory(at: backupDir, withIntermediateDirectories: true)
+            let currentBackup = backupDir.appendingPathComponent("PocketPDA-Backup.ppb")
+            let previousBackup = backupDir.appendingPathComponent("PocketPDA-Backup.previous.ppb")
+            if fm.fileExists(atPath: currentBackup.path) {
+                if fm.fileExists(atPath: previousBackup.path) { try fm.removeItem(at: previousBackup) }
+                try fm.moveItem(at: currentBackup, to: previousBackup)
+            }
             let commandDir = pocketRoot.appendingPathComponent("commands", isDirectory: true)
-            try FileManager.default.createDirectory(at: commandDir, withIntermediateDirectories: true)
+            try fm.createDirectory(at: commandDir, withIntermediateDirectories: true)
             try Data("backup\n".utf8).write(to: commandDir.appendingPathComponent("backup.request"), options: .atomic)
+            pendingBackupDestination = destination
+            UserDefaults.standard.set(destination.path, forKey: pendingBackupKey)
             try NSWorkspace.shared.unmountAndEjectDevice(at: root)
             deviceRoot = nil
             status = "Backup requested"
-            detail = "The Pager is creating the backup. When it says BACKUP READY, open USB Disk Mode again to download it."
+            detail = "The Pager is creating the backup. When it says BACKUP READY, open USB Disk Mode again; the app will save it automatically."
         } catch { showError("Could not request the backup: \(error.localizedDescription)") }
+    }
+
+    private func completePendingBackupIfReady() {
+        guard let destination = pendingBackupDestination, let pocketRoot else { return }
+        let source = pocketRoot.appendingPathComponent("backups/PocketPDA-Backup.ppb")
+        guard FileManager.default.fileExists(atPath: source.path) else {
+            status = "Waiting for requested backup"
+            detail = "Exit USB Disk Mode, wait for BACKUP READY, then enter USB Disk Mode again."
+            return
+        }
+        do {
+            let data = try Data(contentsOf: source)
+            try validateBackup(data)
+            try data.write(to: destination, options: .atomic)
+            pendingBackupDestination = nil
+            UserDefaults.standard.removeObject(forKey: pendingBackupKey)
+            status = "Backup saved"
+            detail = "Verified backup saved to \(destination.path)"
+        } catch {
+            detail = "The requested backup could not be saved automatically: \(error.localizedDescription)"
+        }
     }
 
     func stageRestore() {
@@ -310,7 +351,7 @@ struct ContentView: View {
                             Button("Request Backup & Eject") { model.requestBackup() }.frame(maxWidth: .infinity, alignment: .leading).disabled(!model.connected)
                             Button("Download Verified Backup…") { model.downloadBackup() }.frame(maxWidth: .infinity, alignment: .leading).disabled(!model.connected)
                             Button("Stage Verified Restore…") { model.stageRestore() }.frame(maxWidth: .infinity, alignment: .leading).disabled(!model.connected)
-                            Text("A requested backup is created after ejection. Re-enter USB Disk Mode to download it. Restores require confirmation on the Pager.").font(.caption).foregroundStyle(.secondary)
+                            Text("Choose a save location, then the app ejects the Pager. Re-enter USB Disk Mode after BACKUP READY and the verified backup saves automatically.").font(.caption).foregroundStyle(.secondary)
                         }.padding(8)
                     }
                     GroupBox("Organizer") {
