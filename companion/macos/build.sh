@@ -5,7 +5,7 @@ script_dir=${0:A:h}
 repo_root=${script_dir:h:h}
 build_dir="$script_dir/build"
 app_dir="$repo_root/dist/PocketPDA Companion.app"
-zip_path="$repo_root/dist/PocketPDA-Companion-macOS-v0.1.1.zip"
+zip_path="$repo_root/dist/PocketPDA-Companion-macOS-v0.1.2.zip"
 
 mkdir -p "$build_dir" "$app_dir/Contents/MacOS" "$app_dir/Contents/Resources"
 sdk_path="/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk"
@@ -23,6 +23,7 @@ lipo -create \
   -output "$app_dir/Contents/MacOS/PocketPDACompanion"
 cp "$script_dir/Info.plist" "$app_dir/Contents/Info.plist"
 cp "$repo_root/tools/pocketpda-editor.html" "$app_dir/Contents/Resources/pocketpda-editor.html"
+cp "$script_dir/Assets/AppIcon.icns" "$app_dir/Contents/Resources/AppIcon.icns"
 xattr -cr "$app_dir"
 xattr -d com.apple.FinderInfo "$app_dir" 2>/dev/null || true
 xattr -d 'com.apple.fileprovider.fpfs#P' "$app_dir" 2>/dev/null || true
