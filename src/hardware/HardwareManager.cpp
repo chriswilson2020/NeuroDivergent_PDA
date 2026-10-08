@@ -34,6 +34,22 @@ bool HardwareManager::begin() {
 }
 void HardwareManager::update() { instance.loop(); battery.update(); }
 void HardwareManager::setBrightness(uint8_t level) { brightness_ = constrain(level, 0, 16); instance.setBrightness(brightness_); }
+void HardwareManager::setDisplaySleeping(bool sleeping) {
+    if (sleeping == displaySleeping_) return;
+    displaySleeping_ = sleeping;
+    if (sleeping) {
+        if (probeMask_ & HW_KEYBOARD_ONLINE) {
+            const uint8_t current = instance.kb.getBrightness();
+            if (current) keyboardBrightness_ = current;
+            instance.kb.setBrightness(0);
+        }
+        setBrightness(0);
+        instance.sleepDisplay();
+        return;
+    }
+    instance.wakeupDisplay();
+    if (probeMask_ & HW_KEYBOARD_ONLINE) instance.kb.setBrightness(keyboardBrightness_);
+}
 bool HardwareManager::shutdown() {
     const uint8_t previousBrightness = brightness_;
     storage.unmount();

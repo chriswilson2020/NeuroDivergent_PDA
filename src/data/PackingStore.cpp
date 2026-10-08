@@ -1,0 +1,12 @@
+#include "PackingStore.h"
+#include "StoreIO.h"
+#include "hardware/SPIBusManager.h"
+#include "hardware/StorageService.h"
+#include <Arduino.h>
+#include <SD.h>
+#include <cctype>
+#include <cstring>
+namespace{constexpr uint32_t kMagic=0x50414331,kStateMagic=0x50415331;constexpr const char*kPath="/PocketPDA/packing/templates.dat";bool containsIgnoreCase(const char*h,const char*n){if(!*n)return true;for(;*h;++h){const char*a=h,*b=n;while(*a&&*b&&tolower((unsigned char)*a)==tolower((unsigned char)*b)){++a;++b;}if(!*b)return true;}return false;}}
+bool PackingStore::load(){bool existed=false;if(storage_.mounted()){SPIBusManager::Guard g(bus_);if(g)existed=SD.exists(kPath);}const bool ok=StoreIO::load(storage_,bus_,kPath,kMagic,records_,kCapacity,count_);nextId_=1;for(size_t i=0;i<count_;++i)if(records_[i].id>=nextId_)nextId_=records_[i].id+1;if(ok&&!existed)return defaults();return ok;}
+bool PackingStore::defaults(){struct D{const char*k,*t,*a,*b,*c;}d[]={{"Physical","PE KIT","Sports clothes","Sports shoes","Water bottle"},{"Design","DESIGN","Sketchbook","Pencil case","Homework"},{"Music","MUSIC","Instrument","Music folder","Pencil"}};for(auto&i:d){auto&r=records_[count_++];r.id=nextId_++;r.itemCount=3;strlcpy(r.keyword,i.k,sizeof(r.keyword));strlcpy(r.title,i.t,sizeof(r.title));strlcpy(r.items[0],i.a,32);strlcpy(r.items[1],i.b,32);strlcpy(r.items[2],i.c,32);}return save();}
+bool PackingStore::save(){return StoreIO::save(storage_,bus_,kPath,kMagic,records_,count_);}PackingTemplate*PackingStore::find(uint32_t id){for(size_t i=0;i<count_;++i)if(records_[i].id==id)return&records_[i];return nullptr;}PackingTemplate*PackingStore::match(const char*t){for(size_t i=0;i<count_;++i)if(containsIgnoreCase(t,records_[i].keyword))return&records_[i];return nullptr;}bool PackingStore::upsert(PackingTemplate&r){auto*o=find(r.id);if(o)*o=r;else{if(count_>=kCapacity)return false;r.id=nextId_++;records_[count_++]=r;}return save();}bool PackingStore::remove(uint32_t id){for(size_t i=0;i<count_;++i)if(records_[i].id==id){memmove(&records_[i],&records_[i+1],(count_-i-1)*sizeof(PackingTemplate));--count_;return save();}return false;}bool PackingStore::loadState(PackingState&s){size_t n=0;return StoreIO::load(storage_,bus_,"/PocketPDA/packing/state.dat",kStateMagic,&s,1,n)&&n==1;}bool PackingStore::saveState(const PackingState&s){return StoreIO::save(storage_,bus_,"/PocketPDA/packing/state.dat",kStateMagic,&s,1);}

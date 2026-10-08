@@ -6,6 +6,7 @@
 #include "apps/files/FilesApp.h"
 #include "apps/habits/HabitsApp.h"
 #include "apps/notes/NotesApp.h"
+#include "apps/packing/PackingApp.h"
 #include "apps/routines/RoutinesApp.h"
 #include "apps/settings/SettingsApp.h"
 #include "apps/tasks/TasksApp.h"
@@ -20,6 +21,7 @@
 #include "data/AssignmentStore.h"
 #include "data/HabitStore.h"
 #include "data/NoteStore.h"
+#include "data/PackingStore.h"
 #include "data/RoutineStore.h"
 #include "data/SettingsStore.h"
 #include "data/TaskStore.h"
@@ -39,6 +41,7 @@ static AssignmentStore assignmentStore(hardware.storage, hardware.spi);
 static HabitStore habitStore(hardware.storage, hardware.spi);
 static TaskStore taskStore(hardware.storage, hardware.spi);
 static NoteStore noteStore(hardware.storage, hardware.spi);
+static PackingStore packingStore(hardware.storage, hardware.spi);
 static RoutineStore routineStore(hardware.storage, hardware.spi);
 static TimerStore timerStore(hardware.storage, hardware.spi);
 static UsbDiskService usbDisk(hardware.storage, hardware.spi);
@@ -49,6 +52,7 @@ static CaptureApp capture(taskStore, noteStore, hardware.rtc);
 static CalendarApp calendar(calendarStore, hardware.rtc);
 static TasksApp tasks(taskStore, hardware.rtc);
 static AssignmentsApp assignments(assignmentStore, hardware.rtc, hardware.haptic);
+static PackingApp packing(packingStore, calendarStore, hardware.rtc, hardware.haptic);
 static NotesApp notes(noteStore);
 static RoutinesApp routines(routineStore, hardware.haptic);
 static TimerService timerService;
@@ -67,6 +71,7 @@ static void dataRestored(void *) {
     habitStore.load();
     taskStore.load();
     noteStore.load();
+    packingStore.load();
     routineStore.load();
     timerStore.load();
     timerService.reload();
@@ -84,6 +89,7 @@ static void usbDiskFinished(void *, bool storageReady) {
     habitStore.load();
     taskStore.load();
     noteStore.load();
+    packingStore.load();
     routineStore.load();
     timerStore.load();
     timerService.reload();
@@ -102,7 +108,7 @@ static void usbDiskFinished(void *, bool storageReady) {
 void setup() {
     Serial.begin(115200);
     delay(100);
-    Serial.println("\nPocketPDA v0.2.2");
+    Serial.println("\nPocketPDA v0.2.4");
     const bool essentialHardwareReady = hardware.begin();
     settingsStore.load();
     const bool storageReady = hardware.storage.mount(hardware.spi);
@@ -112,10 +118,11 @@ void setup() {
         habitStore.load();
         taskStore.load();
         noteStore.load();
+        packingStore.load();
         routineStore.load();
         timerStore.load();
     }
-    shell.begin(hardware, today, transition, capture, calendar, tasks, assignments, routines, notes, clockApp, habits, files, settings);
+    shell.begin(hardware, today, transition, capture, calendar, tasks, assignments, packing, routines, notes, clockApp, habits, files, settings);
     usbDisk.setFinishedCallback(usbDiskFinished, nullptr);
     backup.setRestoredCallback(dataRestored, nullptr);
     input.begin(shell);

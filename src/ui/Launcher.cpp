@@ -5,8 +5,9 @@
 struct LauncherItem { const char *label; const char *id; };
 static constexpr LauncherItem kItems[] = {
     {"TODAY", "today"}, {"TRANSITION", "transition"}, {"QUICK CAPTURE", "capture"}, {"CALENDAR", "calendar"},
-    {"TASKS", "tasks"}, {"ASSIGNMENTS", "assignments"}, {"ROUTINES", "routines"}, {"NOTES", "notes"},
-    {"TIMERS", "clock"}, {"HABITS + PET", "habits"}, {"FILES", "files"}, {"SETTINGS", "settings"}
+    {"TASKS", "tasks"}, {"ASSIGNMENTS", "assignments"}, {"PACKING", "packing"}, {"ROUTINES", "routines"},
+    {"NOTES", "notes"}, {"TIMERS", "clock"}, {"HABITS + PET", "habits"}, {"FILES", "files"},
+    {"SETTINGS", "settings"}
 };
 
 void Launcher::create(lv_obj_t *parent, Shell &shell) {
@@ -18,7 +19,7 @@ void Launcher::create(lv_obj_t *parent, Shell &shell) {
     lv_obj_set_style_pad_all(root_, 8, 0); lv_obj_set_style_pad_row(root_, 7, 0); lv_obj_set_style_pad_column(root_, 7, 0);
     lv_obj_set_layout(root_, LV_LAYOUT_GRID);
     static int32_t cols[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
-    static int32_t rows[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
+    static int32_t rows[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
     lv_obj_set_grid_dsc_array(root_, cols, rows);
     for (size_t i = 0; i < sizeof(kItems) / sizeof(kItems[0]); ++i) {
         lv_obj_t *button = lv_button_create(root_); Theme::styleButton(button, i == 0);

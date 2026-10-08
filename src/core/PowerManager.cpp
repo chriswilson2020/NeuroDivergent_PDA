@@ -16,7 +16,12 @@ void PowerManager::update() {
 }
 void PowerManager::transition(PowerState next) {
     if (!hardware_ || next == state_) return;
+    if (state_ == PowerState::SLEEP && next != PowerState::SLEEP) {
+        hardware_->setDisplaySleeping(false);
+        lv_obj_invalidate(lv_screen_active());
+    }
     state_ = next;
-    hardware_->setBrightness(next == PowerState::ACTIVE ? config_.activeBrightness : next == PowerState::DIMMED ? config_.dimBrightness : 0);
+    if (next == PowerState::SLEEP) hardware_->setDisplaySleeping(true);
+    else hardware_->setBrightness(next == PowerState::ACTIVE ? config_.activeBrightness : config_.dimBrightness);
     EventBus::instance().publish(SystemEvent::PowerStateChanged);
 }

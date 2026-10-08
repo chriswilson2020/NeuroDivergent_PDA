@@ -1,0 +1,35 @@
+date,start,end,title,location,reminder_minutes,repeat
+2026-10-05,08:30,09:30,Design,e1060,5,weekly
+2026-10-05,09:30,10:30,Design,e1060,5,weekly
+2026-10-05,10:45,11:45,Mathematics,e0066,5,weekly
+2026-10-05,11:45,12:45,Science,e1046,5,weekly
+2026-10-05,13:30,14:30,English Language,e0076,5,weekly
+2026-10-06,08:30,09:30,Individuals and societies,e0062,5,weekly
+2026-10-06,09:30,10:30,Dutch Language Acquisition,e0074,5,weekly
+2026-10-06,10:45,11:45,support - gouf - 2 leerlingen,e0043,5,weekly
+2026-10-06,11:45,12:45,Drama,e1001,5,weekly
+2026-10-06,13:30,14:30,Physical health education,e0059,5,weekly
+2026-10-07,08:30,09:30,Science,e1045,5,weekly
+2026-10-07,09:30,10:30,Mentorles,e0073,5,weekly
+2026-10-07,10:45,11:45,English Language,e0076,5,weekly
+2026-10-07,11:45,12:45,Mathematics,e0066,5,weekly
+2026-10-07,13:30,14:30,Individuals and societies,e0062,5,weekly
+2026-10-07,14:30,15:30,Science,e1063,5,weekly
+2026-10-08,08:30,09:30,Dutch Language Acquisition,e0059,5,weekly
+2026-10-08,09:30,10:30,Individuals and societies,e0059,5,weekly
+2026-10-08,10:45,11:45,support - gouf - 2 leerlingen,e0043,5,weekly
+2026-10-08,11:45,12:45,Mathematics,e0066,5,weekly
+2026-10-08,13:30,14:30,Music,e1075,5,weekly
+2026-10-09,08:30,09:30,Mentorles,e0073,5,weekly
+2026-10-09,09:30,10:30,English Language,e0075,5,weekly
+2026-10-09,10:45,11:45,Visual art,e1061,5,weekly
+2026-10-09,11:45,12:45,Music,e1075,5,weekly
+2026-10-09,13:30,15:30,Physical and health education,egym2,5,weekly
+2026-10-05,12:45,13:30,munn - 12 leerlingen,e0059,5,once
+2026-10-16,08:30,09:30,Study day - 53 groepen,,5,once
+2026-10-16,09:30,10:30,Study day - 53 groepen,,5,once
+2026-10-16,10:45,11:45,Study day - 53 groepen,,5,once
+2026-10-16,11:45,12:45,Study day - 53 groepen,,5,once
+2026-10-16,13:30,14:30,Study day - 53 groepen,,5,once
+2026-10-16,14:30,15:30,Study day - 53 groepen,,5,once
+2026-10-16,15:45,16:45,Study day - 53 groepen,,5,once

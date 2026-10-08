@@ -25,6 +25,7 @@ This is an assistive organizer, not a medical device, treatment, or substitute f
 - **Calendar:** day agenda, create/edit/delete, reminders, flexible recurrence, and bulk CSV import
 - **Tasks:** priorities, due dates, optional 09:00 reminders, and daily, weekday, weekly, or monthly recurrence
 - **Assignment planner:** break homework into up to six small actions, estimate effort, prioritize it, and see one clear next step
+- **Packing lists:** automatically match reusable checklists to the next lesson and reset them for each occurrence
 - **Routines:** reusable, one-step-at-a-time checklists for predictable transitions and daily activities
 - **Notes:** compact note list and editor with separate note-body storage
 - **Timers & Alarms:** editable named countdown presets and daily alarms with gentle, focus, or urgent vibration patterns
@@ -33,7 +34,7 @@ This is an assistive organizer, not a medical device, treatment, or substitute f
 - **Settings:** clock, brightness, display timeouts, storage status, haptic test, USB Disk Mode, and shutdown
 - **Offline computer editor:** build calendar, task, and routine CSV files without an account or internet connection
 - **Portable backup:** one checksummed file for calendar, tasks, routines, habits, notes, files, and device settings
-- Persistent status bar with charging state, launcher, haptic notifications, low-battery warnings, and dim/display-off power states
+- Persistent status bar with charging state, launcher, haptic notifications, low-battery warnings, and dim/display-off power states; display and keyboard illumination shut down together while alerts remain active
 - Versioned, checksummed microSD data and internal nonvolatile settings
 
 Calendar events stay on the card. Only the current and following calendar week are cached in PSRAM; the on-disk format supports up to 65,535 events.
@@ -90,6 +91,8 @@ Keep the Pager on and connected with a USB data cable. If upload does not start,
 /PocketPDA/calendar/events.dat
 /PocketPDA/tasks/tasks.dat
 /PocketPDA/assignments/assignments.dat
+/PocketPDA/packing/templates.dat
+/PocketPDA/packing/state.dat
 /PocketPDA/routines/routines.dat
 /PocketPDA/timers/presets.dat
 /PocketPDA/notes/index.dat
@@ -166,6 +169,12 @@ Choose **+ NEW** and select **Daily alarm** to add a clock alarm. Enter a 24-hou
 
 Open **ASSIGNMENTS** and choose **+ NEW**. Give the assignment a due date, estimated total effort, priority, and up to six small actions—one action per line. The planner automatically puts the most urgent unfinished assignment in the large **NEXT** card. Press **DONE STEP** to advance; only the next actionable step is emphasized. Finished assignments remain available for review or deletion.
 
-This is early hardware-specific firmware. Back up important data before testing new builds. LoRa, GPS, NFC, motion sensing, and audio are deliberately not initialized in v0.2.2.
+## Event-linked packing lists
+
+Open **PACKING** to see the checklist for the next calendar event within 14 days. A template matches when its lesson word appears anywhere in the event title, so a template with the keyword `Physical` automatically appears for “Physical and health education.” The first run includes PE, Design, and Music examples.
+
+Choose **TEMPLATES** to create or edit up to 12 reusable lists with six items each. Checks are saved on the microSD card and reset automatically for the next occurrence of that lesson.
+
+This is early hardware-specific firmware. Back up important data before testing new builds. LoRa, GPS, NFC, motion sensing, and audio are deliberately not initialized in v0.2.4.
 
 Contributions and device-testing reports are welcome, especially improvements that make the interface calmer, clearer, and easier to operate without a phone.
