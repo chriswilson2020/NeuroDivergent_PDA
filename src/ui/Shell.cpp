@@ -6,7 +6,7 @@
 #include <cstring>
 
 void Shell::begin(HardwareManager &hardware, App &todayApp, App &transitionApp, App &captureApp, App &calendarApp,
-                  App &tasksApp, App &routinesApp, App &notesApp, App &clockApp, App &habitsApp, App &filesApp, App &settingsApp) {
+                  App &tasksApp, App &assignmentsApp, App &routinesApp, App &notesApp, App &clockApp, App &habitsApp, App &filesApp, App &settingsApp) {
     hardware_ = &hardware;
     Theme::apply();
     lv_obj_t *screen = lv_screen_active();
@@ -14,7 +14,7 @@ void Shell::begin(HardwareManager &hardware, App &todayApp, App &transitionApp, 
     lv_obj_add_event_cb(screen, screenKey, LV_EVENT_KEY, this);
     lv_obj_t *statusHost = lv_obj_create(screen); lv_obj_set_pos(statusHost, 0, 0); status_.create(statusHost, hardware.rtc, hardware.battery);
     appArea_ = lv_obj_create(screen); lv_obj_set_pos(appArea_, 0, 28); lv_obj_set_size(appArea_, LV_PCT(100), 194); lv_obj_set_style_pad_all(appArea_, 0, 0); lv_obj_set_style_border_width(appArea_, 0, 0); lv_obj_set_style_radius(appArea_, 0, 0); lv_obj_set_scrollable(appArea_, false);
-    apps_.begin(appArea_); apps_.registerApp(&todayApp); apps_.registerApp(&transitionApp); apps_.registerApp(&captureApp); apps_.registerApp(&calendarApp); apps_.registerApp(&tasksApp); apps_.registerApp(&routinesApp); apps_.registerApp(&notesApp); apps_.registerApp(&clockApp); apps_.registerApp(&habitsApp); apps_.registerApp(&filesApp); apps_.registerApp(&settingsApp);
+    apps_.begin(appArea_); apps_.registerApp(&todayApp); apps_.registerApp(&transitionApp); apps_.registerApp(&captureApp); apps_.registerApp(&calendarApp); apps_.registerApp(&tasksApp); apps_.registerApp(&assignmentsApp); apps_.registerApp(&routinesApp); apps_.registerApp(&notesApp); apps_.registerApp(&clockApp); apps_.registerApp(&habitsApp); apps_.registerApp(&filesApp); apps_.registerApp(&settingsApp);
     launcher_.create(appArea_, *this);
     notifications_.begin(screen, hardware.haptic);
     goToday();

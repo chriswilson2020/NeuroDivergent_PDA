@@ -24,6 +24,7 @@ This is an assistive organizer, not a medical device, treatment, or substitute f
 - **Quick Capture:** save a thought immediately as a task or note
 - **Calendar:** day agenda, create/edit/delete, reminders, flexible recurrence, and bulk CSV import
 - **Tasks:** priorities, due dates, optional 09:00 reminders, and daily, weekday, weekly, or monthly recurrence
+- **Assignment planner:** break homework into up to six small actions, estimate effort, prioritize it, and see one clear next step
 - **Routines:** reusable, one-step-at-a-time checklists for predictable transitions and daily activities
 - **Notes:** compact note list and editor with separate note-body storage
 - **Timers & Alarms:** editable named countdown presets and daily alarms with gentle, focus, or urgent vibration patterns
@@ -88,6 +89,7 @@ Keep the Pager on and connected with a USB data cable. If upload does not start,
 ```text
 /PocketPDA/calendar/events.dat
 /PocketPDA/tasks/tasks.dat
+/PocketPDA/assignments/assignments.dat
 /PocketPDA/routines/routines.dat
 /PocketPDA/timers/presets.dat
 /PocketPDA/notes/index.dat
@@ -160,6 +162,10 @@ Open **TIMERS** from the launcher. The first run creates **Focus 15**, **Break 5
 
 Choose **+ NEW** and select **Daily alarm** to add a clock alarm. Enter a 24-hour time such as `07:30`. Pressing an alarm in the list toggles it on or off. Timers and alarms continue to be checked while the display is off, but a fully powered-down pager cannot sound until it is switched on again.
 
-This is early hardware-specific firmware. Back up important data before testing new builds. LoRa, GPS, NFC, motion sensing, and audio are deliberately not initialized in v0.2.1.
+## Assignment planner
+
+Open **ASSIGNMENTS** and choose **+ NEW**. Give the assignment a due date, estimated total effort, priority, and up to six small actions—one action per line. The planner automatically puts the most urgent unfinished assignment in the large **NEXT** card. Press **DONE STEP** to advance; only the next actionable step is emphasized. Finished assignments remain available for review or deletion.
+
+This is early hardware-specific firmware. Back up important data before testing new builds. LoRa, GPS, NFC, motion sensing, and audio are deliberately not initialized in v0.2.2.
 
 Contributions and device-testing reports are welcome, especially improvements that make the interface calmer, clearer, and easier to operate without a phone.

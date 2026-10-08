@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include "apps/calendar/CalendarApp.h"
+#include "apps/assignments/AssignmentsApp.h"
 #include "apps/capture/CaptureApp.h"
 #include "apps/clock/ClockApp.h"
 #include "apps/files/FilesApp.h"
@@ -16,6 +17,7 @@
 #include "core/BackupService.h"
 #include "core/LowBatteryService.h"
 #include "data/CalendarStore.h"
+#include "data/AssignmentStore.h"
 #include "data/HabitStore.h"
 #include "data/NoteStore.h"
 #include "data/RoutineStore.h"
@@ -33,6 +35,7 @@ static InputManager input;
 static PowerManager power;
 static SettingsStore settingsStore;
 static CalendarStore calendarStore(hardware.storage, hardware.spi);
+static AssignmentStore assignmentStore(hardware.storage, hardware.spi);
 static HabitStore habitStore(hardware.storage, hardware.spi);
 static TaskStore taskStore(hardware.storage, hardware.spi);
 static NoteStore noteStore(hardware.storage, hardware.spi);
@@ -45,6 +48,7 @@ static TransitionApp transition(hardware.rtc, calendarStore);
 static CaptureApp capture(taskStore, noteStore, hardware.rtc);
 static CalendarApp calendar(calendarStore, hardware.rtc);
 static TasksApp tasks(taskStore, hardware.rtc);
+static AssignmentsApp assignments(assignmentStore, hardware.rtc, hardware.haptic);
 static NotesApp notes(noteStore);
 static RoutinesApp routines(routineStore, hardware.haptic);
 static TimerService timerService;
@@ -59,6 +63,7 @@ static uint32_t lastMemoryLog = 0;
 static void dataRestored(void *) {
     settingsStore.load();
     calendarStore.load();
+    assignmentStore.load();
     habitStore.load();
     taskStore.load();
     noteStore.load();
@@ -75,6 +80,7 @@ static void usbDiskFinished(void *, bool storageReady) {
         return;
     }
     calendarStore.load();
+    assignmentStore.load();
     habitStore.load();
     taskStore.load();
     noteStore.load();
@@ -96,19 +102,20 @@ static void usbDiskFinished(void *, bool storageReady) {
 void setup() {
     Serial.begin(115200);
     delay(100);
-    Serial.println("\nPocketPDA v0.2.1");
+    Serial.println("\nPocketPDA v0.2.2");
     const bool essentialHardwareReady = hardware.begin();
     settingsStore.load();
     const bool storageReady = hardware.storage.mount(hardware.spi);
     if (storageReady) {
         calendarStore.load();
+        assignmentStore.load();
         habitStore.load();
         taskStore.load();
         noteStore.load();
         routineStore.load();
         timerStore.load();
     }
-    shell.begin(hardware, today, transition, capture, calendar, tasks, routines, notes, clockApp, habits, files, settings);
+    shell.begin(hardware, today, transition, capture, calendar, tasks, assignments, routines, notes, clockApp, habits, files, settings);
     usbDisk.setFinishedCallback(usbDiskFinished, nullptr);
     backup.setRestoredCallback(dataRestored, nullptr);
     input.begin(shell);

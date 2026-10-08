@@ -8,7 +8,7 @@ public:
     bool launch(const char *id);
     App *active() const { return active_; }
 private:
-    static constexpr size_t kMaxApps = 12;
+    static constexpr size_t kMaxApps = 13;
     lv_obj_t *host_ = nullptr;
     App *apps_[kMaxApps]{};
     size_t count_ = 0;
