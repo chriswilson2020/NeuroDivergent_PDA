@@ -33,6 +33,7 @@ This is an assistive organizer, not a medical device, treatment, or substitute f
 - **Files:** microSD folder browser, text preview, and deletion
 - **Settings:** clock, brightness, display timeouts, storage status, haptic test, USB Disk Mode, and shutdown
 - **Offline computer editor:** build calendar, task, and routine CSV files without an account or internet connection
+- **macOS companion:** automatically detect PocketPDA in USB Disk Mode, synchronize selected macOS/Outlook calendars, verify backups and restores, and safely eject the device
 - **Portable backup:** one checksummed file for calendar, tasks, routines, habits, notes, files, and device settings
 - Persistent status bar with charging state, launcher, haptic notifications, low-battery warnings, and dim/display-off power states; display and keyboard illumination shut down together while alerts remain active
 - Versioned, checksummed microSD data and internal nonvolatile settings
@@ -141,6 +142,10 @@ date,start,end,title,location,reminder_minutes,repeat
 ```
 
 The optional calendar `repeat` value is `once`, `daily`, `weekdays`, `weekly`, or `monthly`. The calendar supports up to 65,535 on-disk events while caching only the current and following week in memory. Tasks support up to 64 entries and routines support up to 12 routines with eight steps each.
+
+## macOS companion
+
+Build the native companion with `companion/macos/build.sh`, then open `dist/PocketPDA Companion.app`. The app detects the Pager after **Settings > USB DISK**, can synchronize calendars already available through macOS Calendar, downloads and validates backup archives, validates and stages restores, and safely ejects the microSD volume. See [`companion/README.md`](companion/README.md) for details.
 
 ## Reminder behavior
 
