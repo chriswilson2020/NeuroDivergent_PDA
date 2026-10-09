@@ -29,7 +29,7 @@ void StatusBar::update() {
     strftime(dateBuf, sizeof(dateBuf), "%a %d %b", &value);
     lv_label_set_text(time_, timeBuf); lv_label_set_text(date_, dateBuf);
     if (battery_ && battery_->available() && battery_->valid()) {
-        if (battery_->charging()) lv_label_set_text_fmt(batteryLabel_, "%d%% " LV_SYMBOL_CHARGE, battery_->percent());
+        if (battery_->usbPresent()) lv_label_set_text_fmt(batteryLabel_, "%d%% " LV_SYMBOL_CHARGE, battery_->percent());
         else lv_label_set_text_fmt(batteryLabel_, "%d%% " LV_SYMBOL_BATTERY_FULL, battery_->percent());
     }
     else lv_label_set_text(batteryLabel_, "--% " LV_SYMBOL_BATTERY_EMPTY);

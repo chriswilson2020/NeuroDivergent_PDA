@@ -121,7 +121,7 @@ static void usbDiskFinished(void *, bool storageReady) {
 void setup() {
     Serial.begin(115200);
     delay(100);
-    Serial.println("\nPocketPDA v0.2.5");
+    Serial.println("\nPocketPDA v0.2.6");
     const bool essentialHardwareReady = hardware.begin();
     settingsStore.load();
     const bool storageReady = hardware.storage.mount(hardware.spi);
