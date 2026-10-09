@@ -15,9 +15,8 @@ void NotificationManager::begin(lv_obj_t *screen, HapticService &haptic) {
     actionLabel_ = lv_label_create(actionButton_); lv_label_set_text(actionLabel_, "OPEN"); lv_obj_center(actionLabel_);
     lv_obj_set_hidden(overlay_, true);
 }
-void NotificationManager::show(const char *title, const char *detail, const char *actionLabel, NotificationAction action, void *context, uint8_t hapticEffect) {
-    // Alerts must wake a display that was switched off by the idle timer.
-    lv_display_trigger_activity(nullptr);
+void NotificationManager::show(const char *title, const char *detail, const char *actionLabel, NotificationAction action, void *context, uint8_t hapticEffect, bool wakeDisplay) {
+    if (wakeDisplay) lv_display_trigger_activity(nullptr);
     lv_label_set_text(title_, title); lv_label_set_text(detail_, detail);
     action_ = action; actionContext_ = context;
     lv_obj_set_hidden(actionButton_, !action_);

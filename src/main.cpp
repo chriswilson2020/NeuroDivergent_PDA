@@ -7,6 +7,7 @@
 #include "apps/files/FilesApp.h"
 #include "apps/habits/HabitsApp.h"
 #include "apps/notes/NotesApp.h"
+#include "apps/messages/MessagesApp.h"
 #include "apps/packing/PackingApp.h"
 #include "apps/routines/RoutinesApp.h"
 #include "apps/settings/SettingsApp.h"
@@ -18,6 +19,7 @@
 #include "core/TimerService.h"
 #include "core/BackupService.h"
 #include "core/LowBatteryService.h"
+#include "core/MessagingService.h"
 #include "data/CalendarStore.h"
 #include "data/AssignmentStore.h"
 #include "data/HabitStore.h"
@@ -27,6 +29,8 @@
 #include "data/SettingsStore.h"
 #include "data/TaskStore.h"
 #include "data/TimerStore.h"
+#include "data/MessageStore.h"
+#include "data/MessagingSettingsStore.h"
 #include "hardware/HardwareManager.h"
 #include "hardware/InputManager.h"
 #include "hardware/UsbDiskService.h"
@@ -37,6 +41,7 @@ static Shell shell;
 static InputManager input;
 static PowerManager power;
 static SettingsStore settingsStore;
+static MessagingSettingsStore messagingSettings;
 static CalendarStore calendarStore(hardware.storage, hardware.spi);
 static AssignmentStore assignmentStore(hardware.storage, hardware.spi);
 static HabitStore habitStore(hardware.storage, hardware.spi);
@@ -45,6 +50,7 @@ static NoteStore noteStore(hardware.storage, hardware.spi);
 static PackingStore packingStore(hardware.storage, hardware.spi);
 static RoutineStore routineStore(hardware.storage, hardware.spi);
 static TimerStore timerStore(hardware.storage, hardware.spi);
+static MessageStore messageStore(hardware.storage, hardware.spi);
 static UsbDiskService usbDisk(hardware.storage, hardware.spi);
 static BackupService backup(hardware.storage, hardware.spi, settingsStore);
 static TodayApp today(hardware.rtc, calendarStore);
@@ -59,11 +65,14 @@ static RoutinesApp routines(routineStore, hardware.haptic);
 static TimerService timerService;
 static ClockApp clockApp(hardware.rtc, timerStore, timerService);
 static HabitsApp habits(habitStore, hardware.rtc, hardware.haptic);
+static MessagingService messaging;
+static MessagesApp messages(messageStore, messagingSettings, messaging, shell);
 static FilesApp files(hardware.storage, hardware.spi);
 static SettingsApp settings(settingsStore, hardware, power, hardware.rtc, shell, usbDisk, backup);
 static ReminderService reminders;
 static LowBatteryService lowBattery;
 static uint32_t lastMemoryLog = 0;
+static uint32_t lastRadioEnergyLog = 0;
 static constexpr const char *kBackupRequestPath = "/PocketPDA/commands/backup.request";
 
 static bool consumeBackupRequest() {
@@ -83,12 +92,14 @@ static void dataRestored(void *) {
     packingStore.load();
     routineStore.load();
     timerStore.load();
+    messageStore.load();
     timerService.reload();
     power.setConfig(settingsStore.powerConfig());
     hardware.setBrightness(settingsStore.value().brightness);
 }
 
 static void usbDiskFinished(void *, bool storageReady) {
+    messaging.resume();
     if (!storageReady) {
         shell.notifications().show("SD CARD ERROR", "The SD card could not be remounted after USB Disk Mode.");
         return;
@@ -102,6 +113,8 @@ static void usbDiskFinished(void *, bool storageReady) {
     packingStore.load();
     routineStore.load();
     timerStore.load();
+    messageStore.load();
+    shell.setMessageUnread(messageStore.unreadCount());
     timerService.reload();
     const size_t eventImports = calendarStore.lastImportCount();
     const size_t taskImports = taskStore.lastImportCount();
@@ -118,12 +131,19 @@ static void usbDiskFinished(void *, bool storageReady) {
     }
 }
 
+static void usbDiskStarted(void *) { messaging.suspend(); }
+static void openMessageConversation(void *context, uint64_t contactId) {
+    shell.openApp("messages");
+    static_cast<MessagesApp *>(context)->openConversation(contactId);
+}
+
 void setup() {
     Serial.begin(115200);
     delay(100);
-    Serial.println("\nPocketPDA v0.2.6");
-    const bool essentialHardwareReady = hardware.begin();
+    Serial.println("\nPocketPDA v0.3.0");
     settingsStore.load();
+    messagingSettings.load();
+    const bool essentialHardwareReady = hardware.begin(messagingSettings.value().enabled);
     const bool storageReady = hardware.storage.mount(hardware.spi);
     if (storageReady) {
         calendarStore.load();
@@ -134,8 +154,13 @@ void setup() {
         packingStore.load();
         routineStore.load();
         timerStore.load();
+        messageStore.load();
     }
-    shell.begin(hardware, today, transition, capture, calendar, tasks, assignments, packing, routines, notes, clockApp, habits, files, settings);
+    shell.begin(hardware, today, transition, capture, calendar, tasks, assignments, packing, routines, notes, clockApp, habits, messages, files, settings);
+    shell.setMessageUnread(messageStore.unreadCount());
+    messaging.begin(hardware, messageStore, messagingSettings, hardware.rtc, shell);
+    messaging.setOpenConversationCallback(openMessageConversation, &messages);
+    usbDisk.setStartedCallback(usbDiskStarted, nullptr);
     usbDisk.setFinishedCallback(usbDiskFinished, nullptr);
     backup.setRestoredCallback(dataRestored, nullptr);
     input.begin(shell);
@@ -161,11 +186,20 @@ void loop() {
         reminders.update();
         timerService.update();
         lowBattery.update();
+        messaging.update();
     }
     lv_timer_handler();
     if (millis() - lastMemoryLog >= 60000) {
         lastMemoryLog = millis();
         Serial.printf("[PocketPDA] heap=%u min=%u psram=%u\n", ESP.getFreeHeap(), ESP.getMinFreeHeap(), ESP.getFreePsram());
+    }
+    if (millis() - lastRadioEnergyLog >= 600000) {
+        lastRadioEnergyLog = millis();
+        const auto radioStats = messaging.stats();
+        Serial.printf("[PocketPDA][radio-energy] uptime=%lus rx=%llums tx=%llums sleep=%llums packets-rx=%lu packets-tx=%lu battery=%u%% %umV %dmA usb=%u\n",
+                      static_cast<unsigned long>(millis()/1000),radioStats.receiveMs,radioStats.transmitMs,radioStats.sleepMs,
+                      static_cast<unsigned long>(radioStats.packetsReceived),static_cast<unsigned long>(radioStats.packetsSent),
+                      hardware.battery.percent(),hardware.battery.voltageMv(),hardware.battery.currentMa(),hardware.battery.usbPresent());
     }
     delay(5);
 }

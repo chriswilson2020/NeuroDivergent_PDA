@@ -1,0 +1,12 @@
+#include "MessagingSettingsStore.h"
+#include <Arduino.h>
+#include <Preferences.h>
+#include <cstring>
+namespace { constexpr uint32_t kVersion=1; struct Blob{uint32_t version;MessagingSettings settings;}; }
+bool MessagingSettingsStore::load(){Preferences p;Blob b{};bool valid=false;if(p.begin("pda-msg",true)){if(p.getBytesLength("config")==sizeof(b)&&p.getBytes("config",&b,sizeof(b))==sizeof(b)&&b.version==kVersion){settings_=b.settings;valid=true;}p.end();}if(!settings_.deviceId)settings_.deviceId=ESP.getEfuseMac();if(!settings_.deviceName[0])strlcpy(settings_.deviceName,"PocketPDA",sizeof(settings_.deviceName));if(settings_.frequencyKhz<863000||settings_.frequencyKhz>870000)settings_.frequencyKhz=868300;if(settings_.spreadingFactor<7||settings_.spreadingFactor>12)settings_.spreadingFactor=8;if(settings_.powerDbm<2||settings_.powerDbm>14)settings_.powerDbm=14;if(settings_.retrySeconds<10||settings_.retrySeconds>300)settings_.retrySeconds=30;if(!settings_.messageSequence)settings_.messageSequence=1;if(!settings_.counterHighWater)settings_.counterHighWater=1;counterNext_=settings_.counterHighWater;settings_.counterHighWater+=64;counterLimit_=settings_.counterHighWater;save();return valid;}
+bool MessagingSettingsStore::save(){Preferences p;if(!p.begin("pda-msg",false))return false;Blob b{kVersion,settings_};bool ok=p.putBytes("config",&b,sizeof(b))==sizeof(b);p.end();return ok;}
+const MessagingContact*MessagingSettingsStore::findContact(uint64_t id)const{for(const auto&c:settings_.contacts)if(c.deviceId==id)return&c;return nullptr;}MessagingContact*MessagingSettingsStore::findContact(uint64_t id){for(auto&c:settings_.contacts)if(c.deviceId==id)return&c;return nullptr;}
+bool MessagingSettingsStore::upsertContact(uint64_t id,const char*name,const uint8_t key[32]){MessagingContact*c=findContact(id);if(!c)for(auto&candidate:settings_.contacts)if(!candidate.deviceId){c=&candidate;break;}if(!c)return false;c->deviceId=id;strlcpy(c->name,name&&*name?name:"Pager",sizeof(c->name));memcpy(c->key,key,32);return save();}
+bool MessagingSettingsStore::removeContact(uint64_t id){auto*c=findContact(id);if(!c)return false;*c={};return save();}
+uint32_t MessagingSettingsStore::nextMessageId(){uint32_t id=settings_.messageSequence++;save();return id;}
+uint32_t MessagingSettingsStore::nextPacketCounter(){if(counterNext_>=counterLimit_){settings_.counterHighWater=counterNext_+64;counterLimit_=settings_.counterHighWater;if(!save())return 0;}return counterNext_++;}

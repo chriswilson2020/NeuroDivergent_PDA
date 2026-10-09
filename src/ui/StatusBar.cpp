@@ -16,6 +16,7 @@ void StatusBar::create(lv_obj_t *parent, RTCService &rtc, BatteryService &batter
     lv_obj_set_scrollable(parent, false);
     time_ = lv_label_create(parent); lv_obj_set_style_text_color(time_, lv_color_white(), 0); lv_obj_set_style_text_font(time_, &lv_font_montserrat_16, 0); lv_obj_align(time_, LV_ALIGN_LEFT_MID, 0, 0);
     date_ = lv_label_create(parent); lv_obj_set_style_text_color(date_, Theme::color(0xC7D6D9), 0); lv_obj_align(date_, LV_ALIGN_CENTER, 0, 0);
+    messages_ = lv_label_create(parent); lv_label_set_text(messages_, ""); lv_obj_set_style_text_color(messages_, Theme::color(0x76C7B7), 0); lv_obj_align(messages_, LV_ALIGN_RIGHT_MID, -79, 0); lv_obj_set_hidden(messages_, true);
     notification_ = lv_label_create(parent); lv_label_set_text(notification_, LV_SYMBOL_BELL); lv_obj_set_style_text_color(notification_, Theme::color(0xE59C35), 0); lv_obj_align(notification_, LV_ALIGN_RIGHT_MID, -57, 0); lv_obj_set_hidden(notification_, true);
     batteryLabel_ = lv_label_create(parent); lv_obj_set_style_text_color(batteryLabel_, lv_color_white(), 0); lv_obj_align(batteryLabel_, LV_ALIGN_RIGHT_MID, 0, 0);
     update();
@@ -35,3 +36,4 @@ void StatusBar::update() {
     else lv_label_set_text(batteryLabel_, "--% " LV_SYMBOL_BATTERY_EMPTY);
 }
 void StatusBar::setNotification(bool active) { if (notification_) lv_obj_set_hidden(notification_, !active); }
+void StatusBar::setMessageUnread(uint16_t count){if(!messages_)return;if(count)lv_label_set_text_fmt(messages_,"M:%u",count);lv_obj_set_hidden(messages_,count==0);}

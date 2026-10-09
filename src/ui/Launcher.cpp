@@ -6,8 +6,8 @@ struct LauncherItem { const char *label; const char *id; };
 static constexpr LauncherItem kItems[] = {
     {"TODAY", "today"}, {"TRANSITION", "transition"}, {"QUICK CAPTURE", "capture"}, {"CALENDAR", "calendar"},
     {"TASKS", "tasks"}, {"ASSIGNMENTS", "assignments"}, {"PACKING", "packing"}, {"ROUTINES", "routines"},
-    {"NOTES", "notes"}, {"TIMERS", "clock"}, {"HABITS + PET", "habits"}, {"FILES", "files"},
-    {"SETTINGS", "settings"}
+    {"NOTES", "notes"}, {"TIMERS", "clock"}, {"HABITS + PET", "habits"}, {"MESSAGES", "messages"},
+    {"FILES", "files"}, {"SETTINGS", "settings"}
 };
 
 void Launcher::create(lv_obj_t *parent, Shell &shell) {

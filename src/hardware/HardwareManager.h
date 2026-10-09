@@ -8,7 +8,9 @@
 
 class HardwareManager {
 public:
-    bool begin();
+    bool begin(bool initRadio = false);
+    bool enableRadio();
+    bool radioAvailable() const { return (probeMask_ & 0x00000001UL) != 0; }
     void update();
     void setBrightness(uint8_t level);
     void setDisplaySleeping(bool sleeping);

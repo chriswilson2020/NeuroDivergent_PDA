@@ -4,7 +4,7 @@
 #include <LV_Helper.h>
 #include <esp_heap_caps.h>
 
-bool HardwareManager::begin() {
+bool HardwareManager::begin(bool initRadio) {
     LilyGoDeviceInitOptions options = instance.getDefaultInitOptions();
     options.scanI2c = false;
     // This also installs LilyGoLib's shared-SPI callbacks for the runtime
@@ -16,7 +16,7 @@ bool HardwareManager::begin() {
     options.initSd = false;
     options.initAudio = false;
     options.initCodec = false;
-    options.initRadio = false;
+    options.initRadio = initRadio;
     probeMask_ = instance.begin(options);
     if ((probeMask_ & HW_GAUGE_ONLINE) && instance.gauge.refresh()) {
         constexpr uint16_t kPagerBatteryCapacityMah = 1500;
@@ -52,6 +52,7 @@ bool HardwareManager::begin() {
     Serial.printf("[PocketPDA] probe=0x%08lx heap=%u psram=%u\n", static_cast<unsigned long>(probeMask_), ESP.getFreeHeap(), ESP.getFreePsram());
     return (probeMask_ & (HW_PSRAM_ONLINE | HW_RTC_ONLINE | HW_KEYBOARD_ONLINE)) == (HW_PSRAM_ONLINE | HW_RTC_ONLINE | HW_KEYBOARD_ONLINE);
 }
+bool HardwareManager::enableRadio() { if (radioAvailable()) return true; const bool ok=instance.initLoRa(); if(ok)probeMask_|=HW_RADIO_ONLINE; return ok; }
 void HardwareManager::update() { instance.loop(); battery.update(); }
 void HardwareManager::setBrightness(uint8_t level) { brightness_ = constrain(level, 0, 16); instance.setBrightness(brightness_); }
 void HardwareManager::setDisplaySleeping(bool sleeping) {
@@ -72,6 +73,7 @@ void HardwareManager::setDisplaySleeping(bool sleeping) {
 }
 bool HardwareManager::shutdown() {
     const uint8_t previousBrightness = brightness_;
+    if (radioAvailable()) radio.sleep();
     storage.unmount();
     setBrightness(0);
     if (instance.shutdown()) return true;

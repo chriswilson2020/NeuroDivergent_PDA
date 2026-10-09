@@ -57,6 +57,7 @@ bool UsbDiskService::begin(FinishedCallback callback, void *context) {
 
     createOverlay();
     lv_refr_now(nullptr);
+    if (startedCallback_) startedCallback_(startedContext_);
     setInputsEnabled(false);
     refreshTimer_ = lv_display_get_refr_timer(nullptr);
     if (refreshTimer_) lv_timer_pause(refreshTimer_);
@@ -66,6 +67,7 @@ bool UsbDiskService::begin(FinishedCallback callback, void *context) {
         setInputsEnabled(true);
         lv_obj_delete(overlay_); overlay_ = nullptr; status_ = nullptr;
         lastError_ = "The SD card is busy.";
+        if (callback_) callback_(callbackContext_, true);
         return false;
     }
 

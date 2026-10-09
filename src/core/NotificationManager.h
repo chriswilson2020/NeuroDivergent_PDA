@@ -7,7 +7,8 @@ class NotificationManager {
 public:
     void begin(lv_obj_t *screen, HapticService &haptic);
     void show(const char *title, const char *detail, const char *actionLabel = nullptr,
-              NotificationAction action = nullptr, void *context = nullptr, uint8_t hapticEffect = 47);
+              NotificationAction action = nullptr, void *context = nullptr, uint8_t hapticEffect = 47,
+              bool wakeDisplay = true);
     void dismiss();
     bool active() const { return active_; }
 private:

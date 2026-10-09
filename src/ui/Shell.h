@@ -9,7 +9,7 @@ class HardwareManager;
 class Shell {
 public:
     void begin(HardwareManager &hardware, App &todayApp, App &transitionApp, App &captureApp, App &calendarApp,
-               App &tasksApp, App &assignmentsApp, App &packingApp, App &routinesApp, App &notesApp, App &clockApp, App &habitsApp, App &filesApp, App &settingsApp);
+               App &tasksApp, App &assignmentsApp, App &packingApp, App &routinesApp, App &notesApp, App &clockApp, App &habitsApp, App &messagesApp, App &filesApp, App &settingsApp);
     void update();
     void goToday();
     void goTransition();
@@ -19,6 +19,7 @@ public:
     void launcherAction(const char *id, const char *label);
     bool openApp(const char *id);
     NotificationManager &notifications() { return notifications_; }
+    void setMessageUnread(uint16_t count) { status_.setMessageUnread(count); }
 private:
     static void screenKey(lv_event_t *event);
     HardwareManager *hardware_ = nullptr;
