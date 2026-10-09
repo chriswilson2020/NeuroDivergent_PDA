@@ -30,6 +30,7 @@ This is an assistive organizer, not a medical device, treatment, or substitute f
 - **Notes:** compact note list and editor with separate note-body storage
 - **Timers & Alarms:** editable named countdown presets and daily alarms with gentle, focus, or urgent vibration patterns
 - **Habits + Pet:** editable daily habits, streaks, and an animated companion that reacts to progress
+- **Messages:** encrypted, phone-free LoRa conversations between explicitly paired PocketPDAs, with delivery acknowledgements, retries, unread counts, and notifications
 - **Files:** microSD folder browser, text preview, and deletion
 - **Settings:** clock, brightness, display timeouts, storage status, haptic test, USB Disk Mode, and shutdown
 - **Offline computer editor:** build calendar, task, and routine CSV files without an account or internet connection
@@ -99,6 +100,7 @@ Keep the Pager on and connected with a USB data cable. If upload does not start,
 /PocketPDA/notes/index.dat
 /PocketPDA/notes/00000001.txt
 /PocketPDA/habits/habits.dat
+/PocketPDA/messages/messages.dat
 /PocketPDA/files/
 ```
 
@@ -158,6 +160,14 @@ Build the native companion with `companion/macos/build.sh`, then open `dist/Pock
 
 The status bar shows a lightning bolt while the battery is actively charging. During discharge, PocketPDA gives one warning as the battery crosses 20%, 10%, and 5%. Connecting USB power resets the warning cycle.
 
+## LoRa messaging
+
+Open **MESSAGES > SETUP** on both pagers, give each one a recognizable name, enable messaging, and save. Enter the same 6–16 character pairing code on both units and press **PAIR** within two minutes. Once each pager lists the other as paired, open that contact to send or reply. Messages are limited to 160 UTF-8 bytes.
+
+Messages use AES-256-GCM authenticated encryption, device and message identifiers, acknowledgements, three bounded delivery attempts, and persistent duplicate suppression. The default EU868 profile is 868.300 MHz, 125 kHz bandwidth, SF8, CR 4/5, and 14 dBm. Firmware enforces a conservative 1% transmit airtime budget. Pair only in a trusted place: the human-entered pairing code prevents accidental pairing, but a short code is not resistant to a determined attacker who records the pairing exchange. Secret contact keys stay in the pager's NVS and are deliberately excluded from microSD backups; restored message history remains, but a replacement pager must be paired again.
+
+The initial release keeps the SX1262 in continuous receive while messaging is enabled, including while the display is off. Reliability comes first; no aggressive receive sleep schedule is enabled until real battery tests establish the cost. Every ten minutes the USB serial log emits a `[PocketPDA][radio-energy]` line containing cumulative RX/TX/sleep time, packets, battery percentage, voltage, current, and USB state. See [`docs/messaging.md`](docs/messaging.md) for the repeatable battery test and protocol details.
+
 ## Power off
 
 Open **Settings**, choose **SHUT DOWN**, and confirm. USB-C must be disconnected because external power keeps the board alive. Press the hardware PWR button to wake it.
@@ -184,6 +194,6 @@ Open **PACKING** to see the checklist for the next calendar event within 14 days
 
 Choose **TEMPLATES** to create or edit up to 12 reusable lists with six items each. Checks are saved on the microSD card and reset automatically for the next occurrence of that lesson.
 
-This is early hardware-specific firmware. Back up important data before testing new builds. LoRa, GPS, NFC, motion sensing, and audio are deliberately not initialized in v0.2.5.
+This is early hardware-specific firmware. Back up important data before testing new builds. GPS, NFC, motion sensing, and audio remain deliberately uninitialized; LoRa is initialized only when messaging is enabled.
 
 Contributions and device-testing reports are welcome, especially improvements that make the interface calmer, clearer, and easier to operate without a phone.
