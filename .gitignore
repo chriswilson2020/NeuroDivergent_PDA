@@ -9,3 +9,5 @@ tools/build_gabriel_agenda.py
 .DS_Store
 companion/macos/build/
 dist/
+__pycache__/
+*.pyc
