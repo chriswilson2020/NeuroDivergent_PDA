@@ -20,16 +20,29 @@ void Shell::begin(HardwareManager &hardware, App &todayApp, App &transitionApp, 
     goToday();
 }
 void Shell::update() { status_.update(); status_.setNotification(notifications_.active()); }
-void Shell::goToday() { launcher_.hide(); apps_.launch("today"); }
-void Shell::goTransition() { launcher_.hide(); apps_.launch("transition"); }
-void Shell::goCapture() { launcher_.hide(); apps_.launch("capture"); }
+void Shell::goToday() { openApp("today"); }
+void Shell::goTransition() { openApp("transition"); }
+void Shell::goCapture() { openApp("capture"); }
 void Shell::back() {
     if (notifications_.active()) notifications_.dismiss();
-    else if (launcher_.visible()) launcher_.hide();
+    else if (launcher_.visible()) closeLauncher();
     else toggleLauncher();
 }
-void Shell::toggleLauncher() { launcher_.toggle(); }
-bool Shell::openApp(const char *id) { launcher_.hide(); return apps_.launch(id); }
+void Shell::toggleLauncher() { if(launcher_.visible())closeLauncher();else goLauncher(); }
+void Shell::goLauncher() {
+    if(!launcher_.visible())focusBeforeLauncher_=lv_group_get_focused(lv_group_get_default());
+    // Hidden application controls must not remain in the encoder's navigation
+    // path behind the launcher overlay.
+    if(apps_.active()&&apps_.active()->root())lv_obj_set_hidden(apps_.active()->root(),true);
+    launcher_.show();
+}
+void Shell::closeLauncher() {
+    launcher_.hide();
+    if(apps_.active()&&apps_.active()->root())lv_obj_set_hidden(apps_.active()->root(),false);
+    if(focusBeforeLauncher_&&lv_obj_is_valid(focusBeforeLauncher_))lv_group_focus_obj(focusBeforeLauncher_);
+    focusBeforeLauncher_=nullptr;
+}
+bool Shell::openApp(const char *id) { closeLauncher(); return apps_.launch(id); }
 void Shell::launcherAction(const char *id, const char *label) {
     if (openApp(id)) return;
     if (std::strcmp(id, "_haptic") == 0) { hardware_->haptic.play(47); notifications_.show("HAPTIC TEST", hardware_->haptic.available() ? "DRV2605 effect 47 played" : "Haptic driver not detected"); return; }
@@ -38,11 +51,11 @@ void Shell::launcherAction(const char *id, const char *label) {
     notifications_.show(label, message);
 }
 void Shell::screenKey(lv_event_t *event) {
-    auto *self = static_cast<Shell *>(lv_event_get_user_data(event));
     const uint32_t key = lv_event_get_key(event);
-    if (key == LV_KEY_ESC || key == LV_KEY_BACKSPACE) {
-        self->back();
-    } else if (key == LV_KEY_NEXT) {
+    // Global Back is handled once at the input device by InputManager.
+    // Handling a bubbled copy here could toggle the launcher open then shut
+    // again during a single physical key press.
+    if (key == LV_KEY_NEXT) {
         lv_group_focus_next(lv_group_get_default());
     }
 }

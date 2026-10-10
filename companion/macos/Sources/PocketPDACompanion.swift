@@ -23,8 +23,11 @@ final class CompanionModel: ObservableObject {
 
     private let eventStore = EKEventStore()
     private var scanTimer: Timer?
-    private var pendingBackupDestination: URL?
+    @Published private var pendingBackupDestination: URL?
+    var hasPendingBackup: Bool { pendingBackupDestination != nil }
     private let pendingBackupKey = "PendingBackupDestination"
+    private let pendingBackupTicketKey = "PendingBackupTicket"
+    private let pendingTimeKey = "PendingTimeSession"
 
     init() {
         if let path = UserDefaults.standard.string(forKey: pendingBackupKey) {
@@ -54,6 +57,7 @@ final class CompanionModel: ObservableObject {
             let suffix = FileManager.default.fileExists(atPath: backup.path) ? "  •  backup ready" : ""
             detail = "\(found.lastPathComponent)  •  \(free) free of \(total)\(suffix)"
             completePendingBackupIfReady()
+            completePendingTimeIfReady()
         } else {
             status = "PocketPDA not connected"
             detail = "On the Pager choose Settings > USB DISK, then wait for it to appear."
@@ -74,6 +78,54 @@ final class CompanionModel: ObservableObject {
         deviceRoot = root
         status = "PocketPDA connected"
         detail = root.path
+        completePendingBackupIfReady()
+        completePendingTimeIfReady()
+    }
+
+    func syncTime() {
+        guard let pocketRoot, let root = deviceRoot else { return }
+        do {
+            let commands = pocketRoot.appendingPathComponent("commands", isDirectory: true)
+            guard let raw = try? String(contentsOf: commands.appendingPathComponent("time.session"), encoding: .utf8) else {
+                throw CompanionError.message("This pager needs the new firmware before Mac time sync is available. Update it, then re-enter USB Disk Mode.")
+            }
+            let session = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard session.count == 29, session.allSatisfy({ $0.isHexDigit || $0 == "-" }) else {
+                throw CompanionError.message("The pager's time-sync session is invalid. Re-enter USB Disk Mode and try again.")
+            }
+            let epoch = Int64(Date().timeIntervalSince1970)
+            guard (1_577_836_800...4_102_444_799).contains(epoch) else {
+                throw CompanionError.message("Check your Mac's date and time first.")
+            }
+            try Data("PocketPDA-Time-1\n\(session)\n\(epoch)\n".utf8)
+                .write(to: commands.appendingPathComponent("time.request"), options: .atomic)
+            UserDefaults.standard.set(session, forKey: pendingTimeKey)
+            do { try NSWorkspace.shared.unmountAndEjectDevice(at: root) }
+            catch {
+                // A timestamp must not sit on the card until an eventual later ejection.
+                do { try FileManager.default.removeItem(at: commands.appendingPathComponent("time.request")) }
+                catch {
+                    throw CompanionError.message("Ejection failed and the time request could not be cancelled. Do not leave it staged: click Set Pager Time from Mac again immediately before ejecting.")
+                }
+                UserDefaults.standard.removeObject(forKey: pendingTimeKey)
+                throw error
+            }
+            deviceRoot = nil
+            status = "Time sync sent"
+            detail = "Check MAC TIME SYNC on the pager. Its timezone is unchanged. Re-enter USB Disk Mode to confirm the result here."
+        } catch { showError(error.localizedDescription) }
+    }
+
+    private func completePendingTimeIfReady() {
+        guard let session = UserDefaults.standard.string(forKey: pendingTimeKey), let pocketRoot,
+              let result = try? String(contentsOf: pocketRoot.appendingPathComponent("commands/time.result"), encoding: .utf8) else { return }
+        let lines = result.split(separator: "\n").map(String.init)
+        guard lines.count == 3, lines[0] == session else { return }
+        UserDefaults.standard.removeObject(forKey: pendingTimeKey)
+        if lines[1] == "OK" {
+            status = "Pager time sync confirmed"
+            detail = "The pager verified its RTC after setting UTC from this Mac. Its timezone and organizer data were preserved."
+        } else { showError("The pager could not set its RTC. Please retry time sync.") }
     }
 
     func requestCalendars() {
@@ -177,36 +229,56 @@ final class CompanionModel: ObservableObject {
     func requestBackup() {
         guard let pocketRoot, let root = deviceRoot else { return }
         let formatter = DateFormatter(); formatter.dateFormat = "yyyy-MM-dd-HHmm"
-        let panel = NSSavePanel(); panel.title = "Choose where the new PocketPDA backup will be saved"; panel.nameFieldStringValue = "PocketPDA-\(formatter.string(from: Date())).ppb"
+        let panel = NSSavePanel(); panel.title = "Save a fresh PocketPDA backup to your Mac"; panel.nameFieldStringValue = "PocketPDA-\(formatter.string(from: Date())).ppb"
         guard panel.runModal() == .OK, let destination = panel.url else { return }
-        do {
-            let fm = FileManager.default
-            let backupDir = pocketRoot.appendingPathComponent("backups", isDirectory: true)
-            try fm.createDirectory(at: backupDir, withIntermediateDirectories: true)
-            let currentBackup = backupDir.appendingPathComponent("PocketPDA-Backup.ppb")
-            let previousBackup = backupDir.appendingPathComponent("PocketPDA-Backup.previous.ppb")
-            if fm.fileExists(atPath: currentBackup.path) {
-                if fm.fileExists(atPath: previousBackup.path) { try fm.removeItem(at: previousBackup) }
-                try fm.moveItem(at: currentBackup, to: previousBackup)
-            }
-            let commandDir = pocketRoot.appendingPathComponent("commands", isDirectory: true)
-            try fm.createDirectory(at: commandDir, withIntermediateDirectories: true)
-            try Data("backup\n".utf8).write(to: commandDir.appendingPathComponent("backup.request"), options: .atomic)
-            pendingBackupDestination = destination
-            UserDefaults.standard.set(destination.path, forKey: pendingBackupKey)
-            try NSWorkspace.shared.unmountAndEjectDevice(at: root)
-            deviceRoot = nil
-            status = "Backup requested"
-            detail = "The Pager is creating the backup. When it says BACKUP READY, open USB Disk Mode again; the app will save it automatically."
-        } catch { showError("Could not request the backup: \(error.localizedDescription)") }
+        guard !destination.standardizedFileURL.path.hasPrefix(root.standardizedFileURL.path + "/") else {
+            showError("Choose a location on your Mac, not on the pager's SD card."); return
+        }
+        busy = true
+        status = "Creating and verifying backup…"
+        detail = "Keep the pager connected in USB Disk Mode."
+        Task {
+            do {
+                try await Task.detached(priority: .userInitiated) {
+                    try CompanionBackup.create(pocketRoot: pocketRoot, destination: destination)
+                }.value
+                // Retire an abandoned old request only if it belonged to this SD card.
+                let actualTicket = try? String(contentsOf: pocketRoot.appendingPathComponent("commands/backup.ticket"), encoding: .utf8)
+                if actualTicket == UserDefaults.standard.string(forKey: pendingBackupTicketKey) { clearPendingBackup() }
+                status = "Backup saved and verified"
+                detail = "Saved to \(destination.path). You can now safely eject the pager."
+            } catch { showError("Backup failed: \(error.localizedDescription). No existing backup was replaced.") }
+            busy = false
+        }
+    }
+
+    private func clearPendingBackup() {
+        pendingBackupDestination = nil
+        UserDefaults.standard.removeObject(forKey: pendingBackupKey)
+        UserDefaults.standard.removeObject(forKey: pendingBackupTicketKey)
+    }
+
+    func cancelPendingBackup() {
+        clearPendingBackup()
+        status = connected ? "PocketPDA connected" : "PocketPDA not connected"
+        detail = "Old pending download cleared. No backup or organizer data was deleted. Use Back Up to Mac for a fresh backup."
     }
 
     private func completePendingBackupIfReady() {
         guard let destination = pendingBackupDestination, let pocketRoot else { return }
+        if let ticket = UserDefaults.standard.string(forKey: pendingBackupTicketKey) {
+            let actual = try? String(contentsOf: pocketRoot.appendingPathComponent("commands/backup.ticket"), encoding: .utf8)
+            guard actual == ticket else {
+                status = "Waiting for the original backup device"
+                detail = "Connect the SD card on which you requested this backup."
+                return
+            }
+        }
         let source = pocketRoot.appendingPathComponent("backups/PocketPDA-Backup.ppb")
-        guard FileManager.default.fileExists(atPath: source.path) else {
-            status = "Waiting for requested backup"
-            detail = "Exit USB Disk Mode, wait for BACKUP READY, then enter USB Disk Mode again."
+        guard !FileManager.default.fileExists(atPath: pocketRoot.appendingPathComponent("commands/backup.request").path),
+              FileManager.default.fileExists(atPath: source.path) else {
+            status = "Previous backup did not complete"
+            detail = "No new archive is available. Use Back Up to Mac for a fresh direct backup, or Cancel Pending Download."
             return
         }
         do {
@@ -215,6 +287,7 @@ final class CompanionModel: ObservableObject {
             try data.write(to: destination, options: .atomic)
             pendingBackupDestination = nil
             UserDefaults.standard.removeObject(forKey: pendingBackupKey)
+            UserDefaults.standard.removeObject(forKey: pendingBackupTicketKey)
             status = "Backup saved"
             detail = "Verified backup saved to \(destination.path)"
         } catch {
@@ -272,8 +345,8 @@ final class CompanionModel: ObservableObject {
             let pathBytes = data[offset..<(offset + 88)]
             guard let zero = pathBytes.firstIndex(of: 0) else { throw CompanionError.message("A backup path is invalid.") }
             let path = String(decoding: pathBytes[..<zero], as: UTF8.self)
-            let allowedPrefixes = ["calendar/", "tasks/", "assignments/", "packing/", "habits/", "routines/", "timers/", "notes/", "files/"]
-            guard path == "@settings" || (!path.hasPrefix("/") && !path.contains("..") && allowedPrefixes.contains(where: path.hasPrefix)) else {
+            let allowedPrefixes = ["calendar/", "tasks/", "assignments/", "packing/", "habits/", "routines/", "timers/", "notes/", "messages/", "files/"]
+            guard path == "@settings" || path == "@timesync" || (!path.hasPrefix("/") && !path.contains("..") && allowedPrefixes.contains(where: path.hasPrefix)) else {
                 throw CompanionError.message("The backup contains an unsafe path.")
             }
             let size = Int(data.readUInt32(at: offset + 88)), expected = data.readUInt32(at: offset + 92)
@@ -315,8 +388,8 @@ struct ContentView: View {
                     Text(model.detail).font(.callout).foregroundStyle(.secondary).lineLimit(2)
                 }
                 Spacer()
-                Button("Choose Device…") { model.chooseDevice() }
-                Button("Eject") { model.eject() }.disabled(!model.connected)
+                Button("Choose Device…") { model.chooseDevice() }.disabled(model.busy)
+                Button("Eject") { model.eject() }.disabled(!model.connected || model.busy)
             }
             .padding(16).background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 14))
 
@@ -346,12 +419,21 @@ struct ContentView: View {
                 }
 
                 VStack(spacing: 16) {
+                    GroupBox("Pager clock") {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Button("Set Pager Time from Mac") { model.syncTime() }.disabled(!model.connected)
+                            Text("Sets date and time, then ejects. Keeps the pager's timezone. Allow a few seconds for USB handoff; check your Mac's clock first.").font(.caption).foregroundStyle(.secondary)
+                        }.padding(8)
+                    }
                     GroupBox("Backup and restore") {
                         VStack(alignment: .leading, spacing: 10) {
-                            Button("Request Backup & Eject") { model.requestBackup() }.frame(maxWidth: .infinity, alignment: .leading).disabled(!model.connected)
+                            Button("Back Up to Mac…") { model.requestBackup() }.frame(maxWidth: .infinity, alignment: .leading).disabled(!model.connected)
                             Button("Download Verified Backup…") { model.downloadBackup() }.frame(maxWidth: .infinity, alignment: .leading).disabled(!model.connected)
                             Button("Stage Verified Restore…") { model.stageRestore() }.frame(maxWidth: .infinity, alignment: .leading).disabled(!model.connected)
-                            Text("Choose a save location, then the app ejects the Pager. Re-enter USB Disk Mode after BACKUP READY and the verified backup saves automatically.").font(.caption).foregroundStyle(.secondary)
+                            if model.hasPendingBackup {
+                                Button("Cancel Pending Download") { model.cancelPendingBackup() }
+                            }
+                            Text("Choose where to save. The app copies and verifies a fresh backup while the pager stays in USB Disk Mode. No manual backup or reconnect needed. Updated pager firmware required.").font(.caption).foregroundStyle(.secondary)
                         }.padding(8)
                     }
                     GroupBox("Organizer") {
@@ -362,11 +444,11 @@ struct ContentView: View {
                     }
                     Spacer()
                 }.frame(width: 260)
-            }
+            }.disabled(model.busy)
             if model.busy { ProgressView().controlSize(.small) }
         }
         .padding(20)
-        .frame(minWidth: 760, minHeight: 540)
+        .frame(minWidth: 760, minHeight: 650)
     }
 }
 
@@ -374,6 +456,6 @@ struct ContentView: View {
 struct PocketPDACompanionApp: App {
     var body: some Scene {
         WindowGroup("PocketPDA Companion") { ContentView() }
-            .defaultSize(width: 820, height: 590)
+            .defaultSize(width: 820, height: 700)
     }
 }

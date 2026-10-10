@@ -15,6 +15,7 @@ public:
     BackupService(StorageService &storage, SPIBusManager &bus, SettingsStore &settings)
         : storage_(storage), bus_(bus), settings_(settings) {}
     bool create();
+    bool exportSettingsSnapshot();
     bool restore();
     const char *lastError() const { return error_; }
     void setRestoredCallback(RestoredCallback callback, void *context) { restoredCallback_ = callback; restoredContext_ = context; }
@@ -39,4 +40,6 @@ private:
     char error_[112]{};
     DeviceSettings restoredSettings_{};
     bool hasRestoredSettings_ = false;
+    TimeSyncPreferences restoredTimeSync_{};
+    bool hasRestoredTimeSync_ = false;
 };

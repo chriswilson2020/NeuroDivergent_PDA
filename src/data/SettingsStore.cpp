@@ -1,7 +1,16 @@
 #include "SettingsStore.h"
 #include <Preferences.h>
+#include "core/TimeBasis.h"
 
 bool SettingsStore::load() {
+    Preferences sync;
+    timeSync_={};
+    if(sync.begin("pda-sync-pref",true)) {
+        TimeSyncPreferences saved{};
+        if(sync.getBytes("prefs",&saved,sizeof(saved))==sizeof(saved)&&validTimeSyncPreferences(saved))timeSync_=saved;
+        sync.end();
+    }
+    TimeBasis::configure(timeSync_.timezone);
     Preferences preferences;
     if (!preferences.begin("pocketpda", true)) return false;
     settings_.brightness = preferences.getUChar("brightness", 12);
@@ -32,4 +41,11 @@ PowerConfig SettingsStore::powerConfig() const {
     return {static_cast<uint32_t>(settings_.dimSeconds) * 1000,
             static_cast<uint32_t>(settings_.sleepSeconds) * 1000,
             settings_.brightness, settings_.dimBrightness};
+}
+
+bool SettingsStore::saveTimeSync(const TimeSyncPreferences &value) {
+    if(!validTimeSyncPreferences(value))return false;
+    Preferences p;if(!p.begin("pda-sync-pref",false))return false;
+    const bool ok=p.putBytes("prefs",&value,sizeof(value))==sizeof(value);p.end();
+    if(ok){timeSync_=value;TimeBasis::configure(value.timezone);}return ok;
 }

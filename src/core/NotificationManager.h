@@ -11,6 +11,7 @@ public:
               bool wakeDisplay = true);
     void dismiss();
     bool active() const { return active_; }
+    bool canAccept() const { return !active_ || queueCount_<kQueueCapacity; }
     const char *actionTitle() const { return actionTitle_; }
     const char *actionDetail() const { return actionDetail_; }
 private:

@@ -5,7 +5,7 @@ script_dir=${0:A:h}
 repo_root=${script_dir:h:h}
 build_dir="$script_dir/build"
 app_dir="$repo_root/dist/PocketPDA Companion.app"
-zip_path="$repo_root/dist/PocketPDA-Companion-macOS-v0.1.3.zip"
+zip_path="$repo_root/dist/PocketPDA-Companion-macOS-v0.1.5.zip"
 
 mkdir -p "$build_dir" "$app_dir/Contents/MacOS" "$app_dir/Contents/Resources"
 sdk_path="/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk"
@@ -15,6 +15,7 @@ for architecture in arm64 x86_64; do
     -target "$architecture-apple-macosx14.0" \
     -framework SwiftUI -framework AppKit -framework EventKit \
     "$script_dir/Sources/PocketPDACompanion.swift" \
+    "$script_dir/Sources/CompanionBackup.swift" \
     -o "$build_dir/PocketPDACompanion-$architecture"
 done
 lipo -create \

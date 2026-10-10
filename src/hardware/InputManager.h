@@ -19,5 +19,7 @@ private:
     static void altCaptureShortcut();
     static void altTransitionShortcut();
     static void keyboardKey(lv_event_t *event);
+    static void encoderShortClicked(lv_event_t *event);
+    static void encoderLongPressed(lv_event_t *event);
     static Shell *shell_;
 };

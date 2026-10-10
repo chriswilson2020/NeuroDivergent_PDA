@@ -1,6 +1,7 @@
 #pragma once
 #include "core/PowerManager.h"
 #include <stdint.h>
+#include "TimeSyncPreferences.h"
 
 struct DeviceSettings {
     uint8_t brightness = 12;
@@ -16,6 +17,9 @@ public:
     const DeviceSettings &value() const { return settings_; }
     DeviceSettings &value() { return settings_; }
     PowerConfig powerConfig() const;
+    const TimeSyncPreferences &timeSync() const { return timeSync_; }
+    bool saveTimeSync(const TimeSyncPreferences &value);
 private:
     DeviceSettings settings_{};
+    TimeSyncPreferences timeSync_{};
 };

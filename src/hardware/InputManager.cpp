@@ -27,6 +27,34 @@ void InputManager::begin(Shell &shell) {
     if (lv_indev_t *keyboard = lv_get_keyboard_indev()) {
         lv_indev_add_event_cb(keyboard, keyboardKey, LV_EVENT_KEY, nullptr);
     }
+    if (lv_indev_t *encoder = lv_get_encoder_indev()) {
+        lv_indev_add_event_cb(encoder, encoderShortClicked, LV_EVENT_SHORT_CLICKED, nullptr);
+        lv_indev_add_event_cb(encoder, encoderLongPressed, LV_EVENT_LONG_PRESSED, nullptr);
+        lv_indev_set_long_press_time(encoder,700);
+    }
+}
+void InputManager::encoderShortClicked(lv_event_t *event) {
+    lv_indev_t *encoder = lv_get_encoder_indev();
+    if (!encoder) return;
+    lv_group_t *group = lv_indev_get_group(encoder);
+    lv_obj_t *focused = group ? lv_group_get_focused(group) : nullptr;
+    // LVGL enters text editing on the first wheel release. A subsequent
+    // short click finishes it. Process on release so a held press can still
+    // reach the global launcher shortcut without first being swallowed.
+    // Keep dropdown/slider activation and keyboard Enter semantics unchanged.
+    if (!group || !lv_group_get_editing(group) || !focused ||
+        !lv_obj_check_type(focused, &lv_textarea_class)) return;
+    lv_group_set_editing(group, false);
+    lv_obj_remove_state(focused, LV_STATE_PRESSED);
+    lv_indev_stop_processing(encoder);
+    lv_indev_reset(encoder,nullptr);
+    lv_event_stop_processing(event);
+}
+void InputManager::encoderLongPressed(lv_event_t *event) {
+    lv_indev_t *encoder=lv_get_encoder_indev();if(!encoder||!shell_)return;
+    // Reset stops LVGL's subsequent built-in long-press edit-mode toggle.
+    lv_indev_reset(encoder,nullptr);lv_indev_wait_release(encoder);
+    lv_event_stop_processing(event);shell_->goLauncher();
 }
 bool InputManager::insertIntoFocused(char character) { lv_obj_t *focused=lv_group_get_focused(lv_group_get_default());if(!focused||!lv_obj_check_type(focused,&lv_textarea_class))return false;lv_textarea_add_char(focused,character);return true; }
 template<char Character> void InputManager::altSymbol() { insertIntoFocused(Character); }
@@ -47,11 +75,13 @@ void InputManager::keyboardKey(lv_event_t *event) {
 
     // The keyboard Back key edits the active field.  Outside an input it is
     // the app-level Back control.  ESC, when available, is always navigation.
-    lv_obj_t *focused = lv_group_get_focused(lv_group_get_default());
+    lv_group_t *group=lv_indev_get_group(keyboard);
+    lv_obj_t *focused = group?lv_group_get_focused(group):nullptr;
     if (key != LV_KEY_ESC && focused && lv_obj_check_type(focused, &lv_textarea_class)) return;
 
     lv_indev_stop_processing(keyboard);
     lv_indev_wait_release(keyboard);
     lv_event_stop_processing(event);
+    if(group)lv_group_set_editing(group,false);
     shell_->back();
 }

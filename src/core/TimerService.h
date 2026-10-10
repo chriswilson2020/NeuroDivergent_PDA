@@ -1,6 +1,7 @@
 #pragma once
 #include "data/TimerStore.h"
 #include <stdint.h>
+#include "OccurrenceLedger.h"
 
 class RTCService;
 class Shell;
@@ -29,4 +30,6 @@ private:
     time_t lastWall_ = 0;
     int64_t finishMonotonicUs_ = 0;
     uint32_t rtcRevision_ = 0;
+    OccurrenceLedger ledger_;
+    bool ledgerWarning_=false;
 };

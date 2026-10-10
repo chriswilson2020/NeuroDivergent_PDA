@@ -21,6 +21,9 @@
 #include "core/BackupService.h"
 #include "core/LowBatteryService.h"
 #include "core/MessagingService.h"
+#include "core/GnssTimeService.h"
+#include "core/CompanionTimeRequest.h"
+#include <esp_system.h>
 #include "data/CalendarStore.h"
 #include "data/AssignmentStore.h"
 #include "data/HabitStore.h"
@@ -68,14 +71,36 @@ static TimerService timerService;
 static ClockApp clockApp(hardware.rtc, timerStore, timerService);
 static HabitsApp habits(habitStore, hardware.rtc, hardware.haptic);
 static MessagingService messaging;
+static GnssTimeService gnss;
 static MessagesApp messages(messageStore, messagingSettings, messaging, shell);
 static FilesApp files(hardware.storage, hardware.spi);
-static SettingsApp settings(settingsStore, hardware, power, hardware.rtc, shell, usbDisk, backup);
+static SettingsApp settings(settingsStore, hardware, power, hardware.rtc, shell, usbDisk, backup, gnss);
 static ReminderService reminders;
 static LowBatteryService lowBattery;
 static uint32_t lastMemoryLog = 0;
 static uint32_t lastRadioEnergyLog = 0;
 static constexpr const char *kBackupRequestPath = "/PocketPDA/commands/backup.request";
+static char companionSession[48] = {};
+static const char *consumeTimeRequest() {
+    SPIBusManager::Guard guard(hardware.spi);
+    if (!guard || !SD.exists("/PocketPDA/commands/time.request")) return nullptr;
+    File file = SD.open("/PocketPDA/commands/time.request", FILE_READ);
+    char text[160];
+    const size_t size = file ? file.size() : 0;
+    const bool read = file && size <= sizeof(text) && file.readBytes(text, size) == size;
+    if (file) file.close();
+    // Consume before applying, even if malformed; never replay after another USB exit.
+    if (!SD.remove("/PocketPDA/commands/time.request")) return "Time request could not be consumed. Clock unchanged.";
+    int64_t epoch = 0;
+    bool ok = read && CompanionTimeRequest::parse(text, size, companionSession, epoch);
+    if (ok) ok = hardware.rtc.setUtc(static_cast<time_t>(epoch));
+    File result = SD.open("/PocketPDA/commands/time.result", FILE_WRITE);
+    if (result) {
+        result.printf("%s\n%s\n%lld\n", companionSession, ok ? "OK" : "FAILED", static_cast<long long>(epoch));
+        result.close();
+    }
+    return ok ? "Clock set from your Mac. Pager timezone unchanged." : "Time sync failed. Re-enter USB Disk Mode and retry with the updated app.";
+}
 
 static bool consumeBackupRequest() {
     if (!hardware.storage.mounted()) return false;
@@ -85,7 +110,10 @@ static bool consumeBackupRequest() {
 }
 
 static void dataRestored(void *) {
+    gnss.cancel();
     settingsStore.load();
+    hardware.rtc.timezoneChanged();
+    gnss.preferencesChanged();
     calendarStore.load();
     assignmentStore.load();
     habitStore.load();
@@ -107,6 +135,7 @@ static void usbDiskFinished(void *, bool storageReady) {
         return;
     }
     const bool backupRequested = consumeBackupRequest();
+    const char *timeResult = consumeTimeRequest();
     calendarStore.load();
     assignmentStore.load();
     habitStore.load();
@@ -124,6 +153,8 @@ static void usbDiskFinished(void *, bool storageReady) {
     if (backupRequested) {
         if (backup.create()) shell.notifications().show("BACKUP READY", "Requested by the companion app. Re-enter USB Disk Mode to download it.");
         else shell.notifications().show("BACKUP FAILED", backup.lastError());
+    } else if (timeResult) {
+        shell.notifications().show("MAC TIME SYNC", timeResult);
     } else if (eventImports || taskImports || routineImports) {
         char message[96]; snprintf(message, sizeof(message), "%u events, %u tasks and %u routines imported.",
                                    static_cast<unsigned>(eventImports), static_cast<unsigned>(taskImports), static_cast<unsigned>(routineImports));
@@ -133,7 +164,31 @@ static void usbDiskFinished(void *, bool storageReady) {
     }
 }
 
-static void usbDiskStarted(void *) { messaging.suspend(); }
+static void usbDiskStarted(void *) {
+    gnss.cancel(); messaging.suspend();
+    companionSession[0] = 0;
+    const bool settingsExported = backup.exportSettingsSnapshot();
+    SPIBusManager::Guard guard(hardware.spi);
+    if (!guard) return;
+    SD.mkdir("/PocketPDA/commands");
+    SD.remove("/PocketPDA/commands/backup-settings.session");
+    char session[48];
+    snprintf(session, sizeof(session), "%012llx-%08lx%08lx",
+             static_cast<unsigned long long>(ESP.getEfuseMac()),
+             static_cast<unsigned long>(esp_random()), static_cast<unsigned long>(esp_random()));
+    // Remove stale session before publishing a fresh one. Failure leaves sync unavailable.
+    SD.remove("/PocketPDA/commands/time.session");
+    File file = SD.open("/PocketPDA/commands/time.session", FILE_WRITE);
+    if (file) {
+        const size_t written = file.printf("%s\n", session);
+        file.close();
+        if (written == strlen(session) + 1) strlcpy(companionSession, session, sizeof(companionSession));
+    }
+    if (settingsExported && companionSession[0]) {
+        File marker = SD.open("/PocketPDA/commands/backup-settings.session", FILE_WRITE);
+        if (marker) { marker.printf("%s\n", companionSession); marker.close(); }
+    }
+}
 static void openMessageConversation(void *context, uint64_t contactId) {
     shell.openApp("messages");
     static_cast<MessagesApp *>(context)->openConversation(contactId);
@@ -142,7 +197,7 @@ static void openMessageConversation(void *context, uint64_t contactId) {
 void setup() {
     Serial.begin(115200);
     delay(100);
-    Serial.println("\nPocketPDA v0.3.2");
+    Serial.println("\nPocketPDA v0.3.3");
     settingsStore.load();
     messagingSettings.load();
     const bool essentialHardwareReady = hardware.begin(messagingSettings.value().enabled);
@@ -167,6 +222,7 @@ void setup() {
     backup.setRestoredCallback(dataRestored, nullptr);
     input.begin(shell);
     power.begin(hardware, settingsStore.powerConfig());
+    gnss.begin(hardware,power,settingsStore);
     reminders.begin(calendarStore, taskStore, hardware.rtc, shell);
     timerService.begin(timerStore, hardware.rtc, shell);
     lowBattery.begin(hardware.battery, shell);
@@ -190,6 +246,9 @@ void loop() {
         timerService.update();
         lowBattery.update();
         messaging.update();
+        gnss.update(false);
+    } else {
+        gnss.update(true);
     }
     lv_timer_handler();
     if (millis() - lastMemoryLog >= 60000) {
@@ -204,5 +263,8 @@ void loop() {
                       static_cast<unsigned long>(radioStats.packetsReceived),static_cast<unsigned long>(radioStats.packetsSent),
                       hardware.battery.percent(),hardware.battery.voltageMv(),hardware.battery.currentMa(),hardware.battery.usbPresent());
     }
-    sleepCoordinator.idle(usbDisk.active());
+    // GNSS cancellation must have cut the rail before processor sleep. An
+    // expander readback failure is retried, never treated as permission to sleep.
+    if(gnss.active()&&power.state()==PowerState::SLEEP){gnss.cancel();delay(5);}
+    else sleepCoordinator.idle(usbDisk.active());
 }

@@ -15,6 +15,8 @@ int main(){
     advance(rtc,66);svc.update();
     assert(shell.n.titles.size()==2); // both alarms survive a late wake
     advance(rtc,1);svc.update();assert(shell.n.titles.size()==2);
+    rtc.wall-=120;++rtc.rev;advance(rtc,1);svc.update();
+    advance(rtc,120);svc.update();assert(shell.n.titles.size()==2);
     TimerPreset countdown;countdown.minutes=15;assert(svc.start(countdown));
     const int64_t precise=svc.nextSleepDeadlineUs(rtc.wall,fakeUs);
     fakeUs+=123456;fakeMs+=123;
@@ -28,5 +30,14 @@ int main(){
     // A persisted countdown already expired while rebooting is processed immediately.
     store.persisted.finishAt=rtc.wall-5;svc.reload();svc.update();
     advance(rtc,1);svc.update();assert(!svc.active());assert(shell.n.titles.size()==4);
+    // Forward RTC correction catches up independent same-minute alarms.
+    const size_t before=shell.n.titles.size();
+    tm wall{};localtime_r(&rtc.wall,&wall);
+    for(auto &p:store.presets){p.id+=10;p.hour=(wall.tm_hour+1)%24;p.minute=0;}
+    rtc.wall+=3600;++rtc.rev;advance(rtc,1);svc.update();assert(shell.n.titles.size()==before+2);
+    // Backpressure does not mark an undelivered occurrence as delivered.
+    for(auto &p:store.presets){p.id+=10;p.hour=(p.hour+1)%24;}
+    shell.n.accepts=false;rtc.wall+=3600;++rtc.rev;advance(rtc,1);svc.update();assert(shell.n.titles.size()==before+2);
+    shell.n.accepts=true;advance(rtc,1);svc.update();assert(shell.n.titles.size()==before+4);
     puts("timer service tests passed");
 }

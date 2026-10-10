@@ -7,6 +7,10 @@ public:
     bool begin(bool available);
     bool now(struct tm &value) const;
     bool set(const struct tm &value);
+    bool utcNow(time_t &value) const;
+    bool setUtc(time_t value);
+    bool trusted() const { time_t value=0; return utcNow(value); }
+    void timezoneChanged();
     bool scheduleAlarm(time_t when);
     void clearAlarm();
     bool available() const { return available_; }
@@ -14,4 +18,5 @@ public:
 private:
     bool available_ = false;
     uint32_t revision_ = 0;
+    bool utcStorage_ = false;
 };

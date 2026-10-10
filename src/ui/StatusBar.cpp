@@ -24,11 +24,11 @@ void StatusBar::create(lv_obj_t *parent, RTCService &rtc, BatteryService &batter
 void StatusBar::update() {
     if (!rtc_ || (lastUpdateMs_ && millis() - lastUpdateMs_ < 1000)) return;
     lastUpdateMs_ = millis();
-    struct tm value{}; rtc_->now(value);
+    struct tm value{}; const bool trusted=rtc_->now(value);
     char timeBuf[8], dateBuf[24];
     strftime(timeBuf, sizeof(timeBuf), "%H:%M", &value);
     strftime(dateBuf, sizeof(dateBuf), "%a %d %b", &value);
-    lv_label_set_text(time_, timeBuf); lv_label_set_text(date_, dateBuf);
+    lv_label_set_text(time_, trusted?timeBuf:"--:--"); lv_label_set_text(date_, trusted?dateBuf:"SET CLOCK");
     if (battery_ && battery_->available() && battery_->valid()) {
         if (battery_->usbPresent()) lv_label_set_text_fmt(batteryLabel_, "%d%% " LV_SYMBOL_CHARGE, battery_->percent());
         else lv_label_set_text_fmt(batteryLabel_, "%d%% " LV_SYMBOL_BATTERY_FULL, battery_->percent());

@@ -8,6 +8,7 @@
 #include <Arduino.h>
 #include <cstdio>
 #include <cstring>
+#include <esp_timer.h>
 
 namespace {
 time_t makeTime(int year, int month, int day, int hour, int minute) {
@@ -18,7 +19,7 @@ time_t makeTime(int year, int month, int day, int hour, int minute) {
     value.tm_hour = hour;
     value.tm_min = minute;
     value.tm_isdst = -1;
-    return mktime(&value);
+    return TimeBasis::scheduled(value);
 }
 }
 
@@ -27,11 +28,12 @@ void ReminderService::begin(CalendarStore &calendar, TaskStore &tasks, RTCServic
     tasks_ = &tasks;
     rtc_ = &rtc;
     shell_ = &shell;
+    ledger_.begin("pda-remind-ledg");
     struct tm value{};
-    rtc.now(value);
-    lastWall_ = mktime(&value)-1;
+    const bool valid=rtc.now(value);
+    lastWall_ = valid?mktime(&value)-1:0;
     rtcRevision_ = rtc.revision();
-    reschedule(mktime(&value));
+    if(valid)reschedule(mktime(&value));
 }
 
 void ReminderService::setReminder(const char *title, const char *detail) {
@@ -54,9 +56,10 @@ void ReminderService::snooze() {
     strlcpy(snoozedTitle_,shell_->notifications().actionTitle(),sizeof(snoozedTitle_));
     strlcpy(snoozedDetail_,shell_->notifications().actionDetail(),sizeof(snoozedDetail_));
     struct tm value{};
-    rtc_->now(value);
+    if(!rtc_->now(value))return;
     const time_t now = mktime(&value);
     snoozeAt_ = now + 5 * 60;
+    snoozeUs_ = esp_timer_get_time()+300000000;
     reschedule(now);
 }
 
@@ -64,15 +67,24 @@ void ReminderService::update() {
     if (!calendar_ || !tasks_ || !rtc_ || !shell_ || (lastCheckMs_ && millis() - lastCheckMs_ < 1000)) return;
     lastCheckMs_ = millis();
     struct tm value{};
-    rtc_->now(value);
+    if(!rtc_->now(value))return;
     const time_t now = mktime(&value);
+    if(!lastWall_)lastWall_=now-1;
+    ledger_.beginPass();
 
     if (rtcRevision_ != rtc_->revision() || now < lastWall_) {
-        rtcRevision_ = rtc_->revision(); lastWall_ = now-1;
+        rtcRevision_ = rtc_->revision();
+        if(now<lastWall_)lastWall_=now-1;
+        if(snoozeAt_)snoozeAt_=now+((snoozeUs_-esp_timer_get_time()+999999)/1000000);
         reschedule(now);
     }
+    if(now-lastWall_>86400) {
+        if(!shell_->notifications().canAccept())return;
+        shell_->notifications().show("CLOCK MOVED FORWARD","Reminders from the last 24 hours will be caught up; older occurrences are not replayed.");
+        lastWall_=now-86400;
+    }
 
-    if (snoozeAt_ && now >= snoozeAt_) {
+    if (snoozeAt_ && esp_timer_get_time() >= snoozeUs_ && shell_->notifications().canAccept()) {
         snoozeAt_ = 0;
         setReminder(snoozedTitle_,snoozedDetail_);
     }
@@ -82,12 +94,14 @@ void ReminderService::update() {
     // and yesterday's due events if processing resumes just after midnight.
     for (int offset=-1; offset<=1; ++offset) {
     struct tm day=value; day.tm_mday+=offset; day.tm_hour=12; day.tm_min=0; day.tm_sec=0; day.tm_isdst=-1; mktime(&day);
+    if(!calendar_->ensureWindowForDate(day.tm_year+1900,day.tm_mon+1,day.tm_mday))return;
     for (size_t i = 0; i < calendar_->count(); ++i) {
         const auto &event = calendar_->at(i);
         if (!calendar_->occursOn(event, day.tm_year + 1900, day.tm_mon + 1, day.tm_mday)) continue;
         const time_t start = makeTime(day.tm_year + 1900, day.tm_mon + 1, day.tm_mday, event.startHour, event.startMinute);
         const time_t trigger = start - event.reminderMinutes * 60;
-        if (Deadline::crossed(trigger, lastWall_, now)) {
+        if(Deadline::crossed(trigger,lastWall_,now)&&!shell_->notifications().canAccept())return;
+        if (Deadline::crossed(trigger, lastWall_, now) && ledger_.claim('c',event.id,start)) {
 #if POCKETPDA_POWER_DIAGNOSTICS
             Serial.printf("[PocketPDA][deadline] calendar id=%lu late_s=%lld\n",static_cast<unsigned long>(event.id),static_cast<long long>(now-trigger));
 #endif
@@ -100,12 +114,17 @@ void ReminderService::update() {
         }
     }
     }
+    if(!ledger_.healthy()){
+        if(!ledgerWarning_)shell_->notifications().show("REMINDER STORAGE ERROR","Delivery history cannot be saved. Pending reminders will be retried.");
+        ledgerWarning_=true;return;
+    }
 
     for (size_t i = 0; i < tasks_->count(); ++i) {
         const auto &task = tasks_->at(i);
         if (task.completed || !task.reminder || !task.dueYear) continue;
         const time_t due = makeTime(task.dueYear, task.dueMonth, task.dueDay, 9, 0);
-        if (Deadline::crossed(due, lastWall_, now)) {
+        if(Deadline::crossed(due,lastWall_,now)&&!shell_->notifications().canAccept())return;
+        if (Deadline::crossed(due, lastWall_, now) && ledger_.claim('t',task.id,due)) {
 #if POCKETPDA_POWER_DIAGNOSTICS
             Serial.printf("[PocketPDA][deadline] task id=%lu late_s=%lld\n",static_cast<unsigned long>(task.id),static_cast<long long>(now-due));
 #endif
@@ -115,7 +134,13 @@ void ReminderService::update() {
         }
     }
 
+    if(!ledger_.healthy()){
+        if(!ledgerWarning_)shell_->notifications().show("REMINDER STORAGE ERROR","Delivery history cannot be saved. Pending reminders will be retried.");
+        ledgerWarning_=true;return;
+    }
+
     lastWall_ = now;
+    ledgerWarning_=false;
 
     if (!lastScheduleMs_ || millis() - lastScheduleMs_ >= 300000 || (nextAlarm_ && now >= nextAlarm_)) {
         lastScheduleMs_ = millis();

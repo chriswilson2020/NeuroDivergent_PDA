@@ -19,6 +19,9 @@ bool HardwareManager::begin(bool initRadio) {
     options.initCodec = false;
     options.initRadio = initRadio;
     probeMask_ = instance.begin(options);
+    // Always cut GNSS before any UI work, including recovery after a reset
+    // during acquisition. This is independent of the unused-rails option.
+    if(probeMask_ & HW_EXPAND_ONLINE) instance.powerControl(POWER_GPS,false);
 #if POCKETPDA_UNUSED_RAILS_OFF
     // LilyGoLib drives every expander enable HIGH before applying init options.
     // These unused devices otherwise stay powered even though initialization was skipped.
@@ -82,6 +85,7 @@ void HardwareManager::setDisplaySleeping(bool sleeping) {
     if (probeMask_ & HW_KEYBOARD_ONLINE) instance.kb.setBrightness(keyboardBrightness_);
 }
 bool HardwareManager::shutdown() {
+    if(probeMask_ & HW_EXPAND_ONLINE) instance.powerControl(POWER_GPS,false);
     const uint8_t previousBrightness = brightness_;
     if (radioAvailable()) radio.sleep();
     storage.unmount();

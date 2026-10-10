@@ -35,7 +35,7 @@ void Launcher::itemClicked(lv_event_t *event) {
     auto *item = static_cast<LauncherItem *>(lv_obj_get_user_data(lv_event_get_target_obj(event)));
     if (self && item) self->shell_->launcherAction(item->id, item->label);
 }
-void Launcher::show() { lv_obj_set_hidden(root_, false); lv_obj_move_foreground(root_); lv_group_focus_obj(lv_obj_get_child(root_, 0)); }
+void Launcher::show() { lv_group_set_editing(lv_group_get_default(),false); lv_obj_set_hidden(root_, false); lv_obj_move_foreground(root_); lv_group_focus_obj(lv_obj_get_child(root_, 0)); }
 void Launcher::hide() { if (root_) lv_obj_set_hidden(root_, true); }
 void Launcher::toggle() { visible() ? hide() : show(); }
 bool Launcher::visible() const { return root_ && !lv_obj_is_hidden(root_); }

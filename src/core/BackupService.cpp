@@ -39,6 +39,24 @@ bool readExact(File &file, void *destination, size_t size) {
 
 void BackupService::fail(const char *message) { strlcpy(error_, message, sizeof(error_)); }
 
+bool BackupService::exportSettingsSnapshot() {
+    error_[0] = 0;
+    if (!storage_.mounted()) { fail("The microSD card is not available."); return false; }
+    SPIBusManager::Guard guard(bus_);
+    if (!guard) { fail("The microSD card is busy."); return false; }
+    const char *path = "/PocketPDA/commands/backup-settings.ppb";
+    SD.remove(path);
+    File file = SD.open(path, FILE_WRITE);
+    if (!file) { fail("Could not export settings for the Mac backup."); return false; }
+    const ArchiveHeader header{kMagic, kVersion, 2};
+    uint16_t count = 0;
+    bool ok = file.write(reinterpret_cast<const uint8_t *>(&header), sizeof(header)) == sizeof(header)
+              && appendSettings(file, count) && count == 2;
+    file.flush(); file.close();
+    if (!ok) { SD.remove(path); fail("Could not write the settings snapshot."); }
+    return ok;
+}
+
 bool BackupService::create() {
     error_[0] = 0;
     if (!storage_.mounted()) { fail("The microSD card is not available."); return false; }
@@ -86,6 +104,13 @@ bool BackupService::appendSettings(File &backup, uint16_t &count) {
     entry.checksum = checksumUpdate(2166136261u, reinterpret_cast<const uint8_t *>(&settings), sizeof(settings));
     if (backup.write(reinterpret_cast<const uint8_t *>(&entry), sizeof(entry)) != sizeof(entry) ||
         backup.write(reinterpret_cast<const uint8_t *>(&settings), sizeof(settings)) != sizeof(settings)) return false;
+    ++count;
+    if(count>=kMaxEntries)return false;
+    const TimeSyncPreferences &sync=settings_.timeSync();entry={};
+    strlcpy(entry.path,"@timesync",sizeof(entry.path));entry.size=sizeof(sync);
+    entry.checksum=checksumUpdate(2166136261u,reinterpret_cast<const uint8_t*>(&sync),sizeof(sync));
+    if(backup.write(reinterpret_cast<const uint8_t*>(&entry),sizeof(entry))!=sizeof(entry)||
+        backup.write(reinterpret_cast<const uint8_t*>(&sync),sizeof(sync))!=sizeof(sync))return false;
     ++count;
     return true;
 }
@@ -150,6 +175,7 @@ bool BackupService::appendFile(File &backup, File &source, const char *relative,
 bool BackupService::restore() {
     error_[0] = 0;
     hasRestoredSettings_ = false;
+    hasRestoredTimeSync_ = false;
     if (!storage_.mounted()) { fail("The microSD card is not available."); return false; }
     bool ok = false;
     {
@@ -167,6 +193,9 @@ bool BackupService::restore() {
         fail("Data restored, but device settings could not be saved.");
         ok = false;
     }
+    if(ok&&hasRestoredTimeSync_&&!settings_.saveTimeSync(restoredTimeSync_)) {
+        fail("Data restored, but time sync preferences could not be saved.");ok=false;
+    }
     if (ok) {
         if (restoredCallback_) restoredCallback_(restoredContext_);
     }
@@ -176,6 +205,7 @@ bool BackupService::restore() {
 bool BackupService::allowedPath(const char *path) const {
     if (!path || !path[0] || path[0] == '/' || strstr(path, "..")) return false;
     if (!strcmp(path, kSettingsName)) return true;
+    if (!strcmp(path,"@timesync")) return true;
     static const char *prefixes[] = {"calendar/", "tasks/", "assignments/", "packing/", "habits/", "routines/", "timers/", "notes/", "messages/", "files/"};
     for (const char *prefix : prefixes) if (!strncmp(path, prefix, strlen(prefix))) return true;
     return false;
@@ -192,6 +222,12 @@ bool BackupService::validate(File &backup) {
             fail("The backup contains an invalid file path."); return false;
         }
         if (!strcmp(entry.path, kSettingsName) && entry.size != sizeof(DeviceSettings)) { fail("The saved settings are invalid."); return false; }
+        if(!strcmp(entry.path,"@timesync")) {
+            TimeSyncPreferences sync{};
+            if(entry.size!=sizeof(sync)||!readExact(backup,&sync,sizeof(sync))||!validTimeSyncPreferences(sync)||
+                checksumUpdate(2166136261u,reinterpret_cast<const uint8_t*>(&sync),sizeof(sync))!=entry.checksum){fail("Invalid time sync preferences.");return false;}
+            continue;
+        }
         uint32_t checksum = 2166136261u;
         uint32_t remaining = entry.size;
         while (remaining) {
@@ -224,6 +260,10 @@ bool BackupService::extract(File &backup) {
             if (!readExact(backup, &restoredSettings_, sizeof(restoredSettings_))) return false;
             hasRestoredSettings_ = true;
             continue;
+        }
+        if(!strcmp(entry.path,"@timesync")) {
+            if(!readExact(backup,&restoredTimeSync_,sizeof(restoredTimeSync_)))return false;
+            hasRestoredTimeSync_=true;continue;
         }
         char destination[160]; snprintf(destination, sizeof(destination), "%s/%s", kStageRoot, entry.path);
         if (!makeParentDirectories(destination)) return false;

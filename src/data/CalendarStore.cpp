@@ -1,5 +1,6 @@
 #include "CalendarStore.h"
 #include "StoreIO.h"
+#include "core/TimeBasis.h"
 #include <Arduino.h>
 #include <SD.h>
 #include <cstdio>
@@ -221,14 +222,15 @@ bool CalendarStore::nextReminderAfter(time_t now, time_t &trigger) {
         if (!event.recurrence) {
             occurrence.tm_year = event.year - 1900; occurrence.tm_mon = event.month - 1; occurrence.tm_mday = event.day;
             occurrence.tm_hour = event.startHour; occurrence.tm_min = event.startMinute; occurrence.tm_isdst = -1;
-            candidate = mktime(&occurrence) - static_cast<time_t>(event.reminderMinutes) * 60;
+            candidate = TimeBasis::scheduled(occurrence) - static_cast<time_t>(event.reminderMinutes) * 60;
         } else {
             time_t search = now - 86400;
             for (int offset = 0; offset < 40; ++offset) {
                 localtime_r(&search, &occurrence);
                 occurrence.tm_mday += offset;
                 occurrence.tm_hour = event.startHour; occurrence.tm_min = event.startMinute; occurrence.tm_sec = 0; occurrence.tm_isdst = -1;
-                const time_t start = mktime(&occurrence);
+                const time_t start = TimeBasis::scheduled(occurrence);
+                localtime_r(&start,&occurrence);
                 if (occursOn(event, occurrence.tm_year + 1900, occurrence.tm_mon + 1, occurrence.tm_mday)) {
                     const time_t possible = start - static_cast<time_t>(event.reminderMinutes) * 60;
                     if (possible > now) { candidate = possible; break; }

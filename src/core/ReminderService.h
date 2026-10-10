@@ -1,6 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include <time.h>
+#include "OccurrenceLedger.h"
 class CalendarStore;class TaskStore;class RTCService;class Shell;
 
 class ReminderService {
@@ -27,6 +28,9 @@ private:
     uint32_t rtcRevision_ = 0;
     time_t nextAlarm_ = 0;
     time_t snoozeAt_ = 0;
+    int64_t snoozeUs_ = 0;
+    OccurrenceLedger ledger_;
+    bool ledgerWarning_=false;
     char reminderTitle_[64]{};
     char reminderDetail_[96]{};
     char snoozedTitle_[64]{},snoozedDetail_[96]{};
