@@ -15,6 +15,7 @@ public:
     bool active() const { return runtime_.finishAt > 0; }
     time_t finishAt() const { return runtime_.finishAt; }
     int32_t remainingSeconds() const;
+    time_t nextDeadline(time_t current) const;
     const char *activeName() const { return runtime_.name; }
 
 private:
@@ -24,5 +25,7 @@ private:
     Shell *shell_ = nullptr;
     TimerRuntime runtime_{};
     uint32_t lastCheckMs_ = 0;
-    int64_t lastAlarmMinute_ = -1;
+    time_t lastWall_ = 0;
+    int64_t finishMonotonicUs_ = 0;
+    uint32_t rtcRevision_ = 0;
 };

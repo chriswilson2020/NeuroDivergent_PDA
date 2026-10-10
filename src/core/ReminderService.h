@@ -22,9 +22,11 @@ private:
     Shell *shell_ = nullptr;
     uint32_t lastCheckMs_ = 0;
     uint32_t lastScheduleMs_ = 0;
-    uint64_t lastTrigger_ = 0;
+    time_t lastWall_ = 0;
+    uint32_t rtcRevision_ = 0;
     time_t nextAlarm_ = 0;
     time_t snoozeAt_ = 0;
     char reminderTitle_[64]{};
     char reminderDetail_[96]{};
+    char snoozedTitle_[64]{},snoozedDetail_[96]{};
 };

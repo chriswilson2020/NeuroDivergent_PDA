@@ -2,6 +2,7 @@
 #include "EventBus.h"
 #include "hardware/HapticService.h"
 #include "ui/Theme.h"
+#include <Arduino.h>
 
 void NotificationManager::begin(lv_obj_t *screen, HapticService &haptic) {
     haptic_ = &haptic;
@@ -16,6 +17,16 @@ void NotificationManager::begin(lv_obj_t *screen, HapticService &haptic) {
     lv_obj_set_hidden(overlay_, true);
 }
 void NotificationManager::show(const char *title, const char *detail, const char *actionLabel, NotificationAction action, void *context, uint8_t hapticEffect, bool wakeDisplay) {
+    if(active_) {
+        if(queueCount_==kQueueCapacity){Serial.println("[PocketPDA][deadline] notification queue overflow");return;}
+        auto &p=pending_[(queueHead_+queueCount_)%kQueueCapacity];
+        strlcpy(p.title,title?title:"",sizeof(p.title));strlcpy(p.detail,detail?detail:"",sizeof(p.detail));
+        strlcpy(p.label,actionLabel?actionLabel:"",sizeof(p.label));
+        p.action=action;p.context=context;p.effect=hapticEffect;p.wake=wakeDisplay;++queueCount_;
+        if(wakeDisplay)lv_display_trigger_activity(nullptr);
+        if(haptic_)haptic_->play(hapticEffect);
+        return;
+    }
     if (wakeDisplay) lv_display_trigger_activity(nullptr);
     lv_label_set_text(title_, title); lv_label_set_text(detail_, detail);
     action_ = action; actionContext_ = context;
@@ -34,6 +45,16 @@ void NotificationManager::dismiss() {
     if (focusBefore_ && lv_obj_is_valid(focusBefore_)) lv_group_focus_obj(focusBefore_);
     focusBefore_ = nullptr;
     EventBus::instance().publish(SystemEvent::NotificationChanged);
+    if(queueCount_){
+        const Pending p=pending_[queueHead_];queueHead_=(queueHead_+1)%kQueueCapacity;--queueCount_;
+        show(p.title,p.detail,p.label[0]?p.label:nullptr,p.action,p.context,p.effect,p.wake);
+    }
 }
 void NotificationManager::dismissClicked(lv_event_t *event) { static_cast<NotificationManager *>(lv_event_get_user_data(event))->dismiss(); }
-void NotificationManager::actionClicked(lv_event_t *event) { auto *self=static_cast<NotificationManager *>(lv_event_get_user_data(event));auto action=self->action_;void*context=self->actionContext_;self->dismiss();if(action)action(context); }
+void NotificationManager::actionClicked(lv_event_t *event) {
+    auto *self=static_cast<NotificationManager *>(lv_event_get_user_data(event));
+    auto action=self->action_;void*context=self->actionContext_;
+    strlcpy(self->actionTitle_,lv_label_get_text(self->title_),sizeof(self->actionTitle_));
+    strlcpy(self->actionDetail_,lv_label_get_text(self->detail_),sizeof(self->actionDetail_));
+    self->dismiss();if(action)action(context);
+}

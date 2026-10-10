@@ -55,6 +55,7 @@ bool RTCService::set(const struct tm &value) {
     if (!available_) return false;
     instance.rtc.setDateTime(value);
     instance.rtc.hwClockRead();
+    ++revision_;
     return true;
 }
 bool RTCService::scheduleAlarm(time_t when) {

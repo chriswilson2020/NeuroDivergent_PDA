@@ -11,7 +11,18 @@ public:
               bool wakeDisplay = true);
     void dismiss();
     bool active() const { return active_; }
+    const char *actionTitle() const { return actionTitle_; }
+    const char *actionDetail() const { return actionDetail_; }
 private:
+    struct Pending {
+        char title[80]{}, detail[180]{}, label[24]{};
+        NotificationAction action=nullptr; void *context=nullptr;
+        uint8_t effect=47; bool wake=true;
+    };
+    static constexpr size_t kQueueCapacity=64;
+    Pending pending_[kQueueCapacity]{};
+    size_t queueHead_=0, queueCount_=0;
+    char actionTitle_[80]{},actionDetail_[180]{};
     static void dismissClicked(lv_event_t *event);
     static void actionClicked(lv_event_t *event);
     lv_obj_t *overlay_ = nullptr;
