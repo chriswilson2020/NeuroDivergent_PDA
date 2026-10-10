@@ -1,4 +1,5 @@
 #include "HardwareManager.h"
+#include "core/PowerOptions.h"
 #include <Arduino.h>
 #include <LilyGoLib.h>
 #include <LV_Helper.h>
@@ -18,6 +19,15 @@ bool HardwareManager::begin(bool initRadio) {
     options.initCodec = false;
     options.initRadio = initRadio;
     probeMask_ = instance.begin(options);
+#if POCKETPDA_UNUSED_RAILS_OFF
+    // LilyGoLib drives every expander enable HIGH before applying init options.
+    // These unused devices otherwise stay powered even though initialization was skipped.
+    if(probeMask_ & HW_EXPAND_ONLINE) {
+        instance.powerControl(POWER_GPS,false);
+        instance.powerControl(POWER_NFC,false);
+        instance.powerControl(POWER_SPEAK,false);
+    }
+#endif
     if ((probeMask_ & HW_GAUGE_ONLINE) && instance.gauge.refresh()) {
         constexpr uint16_t kPagerBatteryCapacityMah = 1500;
         const uint16_t designCapacity = instance.gauge.getDesignCapacity();

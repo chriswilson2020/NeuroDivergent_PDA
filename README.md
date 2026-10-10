@@ -1,5 +1,8 @@
 # NeuroDivergent PDA
 
+Power-management v0.3.1 adds persistent power logs and experimental CPU sleep
+(disabled by default). See [GPIO audit, power modes and validation status](docs/power-v0.3.1.md).
+
 Phone-free personal organization firmware for the [LILYGO T-LoRa Pager](https://lilygo.cc/products/t-lora-pager), inspired by the practical strengths of classic Palm and Psion handhelds.
 
 This project is for people who benefit from a dependable external memory aid but do not want to carry—or be pulled into—a smartphone. It keeps the useful parts of a phone-sized organizer while leaving out social media, feeds, notifications from other people, advertising, and attention-driven apps.

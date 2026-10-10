@@ -20,6 +20,8 @@ void PowerManager::transition(PowerState next) {
         hardware_->setDisplaySleeping(false);
         lv_obj_invalidate(lv_screen_active());
     }
+    const int64_t now=esp_timer_get_time();
+    stateUs_[static_cast<unsigned>(state_)]+=now-stateSinceUs_;stateSinceUs_=now;
     state_ = next;
     if (next == PowerState::SLEEP) hardware_->setDisplaySleeping(true);
     else hardware_->setBrightness(next == PowerState::ACTIVE ? config_.activeBrightness : config_.dimBrightness);

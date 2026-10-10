@@ -15,6 +15,7 @@
 #include "apps/today/TodayApp.h"
 #include "apps/transition/TransitionApp.h"
 #include "core/PowerManager.h"
+#include "core/SleepCoordinator.h"
 #include "core/ReminderService.h"
 #include "core/TimerService.h"
 #include "core/BackupService.h"
@@ -40,6 +41,7 @@ static HardwareManager hardware;
 static Shell shell;
 static InputManager input;
 static PowerManager power;
+static SleepCoordinator sleepCoordinator;
 static SettingsStore settingsStore;
 static MessagingSettingsStore messagingSettings;
 static CalendarStore calendarStore(hardware.storage, hardware.spi);
@@ -140,7 +142,7 @@ static void openMessageConversation(void *context, uint64_t contactId) {
 void setup() {
     Serial.begin(115200);
     delay(100);
-    Serial.println("\nPocketPDA v0.3.0");
+    Serial.println("\nPocketPDA v0.3.1");
     settingsStore.load();
     messagingSettings.load();
     const bool essentialHardwareReady = hardware.begin(messagingSettings.value().enabled);
@@ -168,6 +170,7 @@ void setup() {
     reminders.begin(calendarStore, taskStore, hardware.rtc, shell);
     timerService.begin(timerStore, hardware.rtc, shell);
     lowBattery.begin(hardware.battery, shell);
+    sleepCoordinator.begin(hardware,power,timerService,reminders,messaging);
     if (calendarStore.lastImportCount() || taskStore.lastImportCount() || routineStore.lastImportCount()) {
         char message[96]; snprintf(message, sizeof(message), "%u events, %u tasks and %u routines imported.",
                                    static_cast<unsigned>(calendarStore.lastImportCount()), static_cast<unsigned>(taskStore.lastImportCount()),
@@ -201,5 +204,5 @@ void loop() {
                       static_cast<unsigned long>(radioStats.packetsReceived),static_cast<unsigned long>(radioStats.packetsSent),
                       hardware.battery.percent(),hardware.battery.voltageMv(),hardware.battery.currentMa(),hardware.battery.usbPresent());
     }
-    delay(5);
+    sleepCoordinator.idle(usbDisk.active());
 }
