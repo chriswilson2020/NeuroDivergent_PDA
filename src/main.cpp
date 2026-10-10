@@ -142,7 +142,7 @@ static void openMessageConversation(void *context, uint64_t contactId) {
 void setup() {
     Serial.begin(115200);
     delay(100);
-    Serial.println("\nPocketPDA v0.3.1");
+    Serial.println("\nPocketPDA v0.3.2");
     settingsStore.load();
     messagingSettings.load();
     const bool essentialHardwareReady = hardware.begin(messagingSettings.value().enabled);

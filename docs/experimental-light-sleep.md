@@ -1,8 +1,35 @@
-# Experimental light sleep, transition revision 2
+# Light-sleep architecture, transition revision 2
 
-Implemented 2026-10-10. Default `tlora_pager` keeps processor sleep OFF;
-`tlora_pager_sleep_test` is a development-only opt-in. Neither pager was flashed
-with this revision during implementation. Physical acceptance is pending.
+Included in stable v0.3.2, 2026-10-10. The default `tlora_pager` enables
+processor sleep with `POCKETPDA_LIGHT_SLEEP_MAX_MS=30000`.
+The filename and legacy configuration/CSV names are retained for compatibility.
+See [current power-management usage](power-v0.3.2.md).
+
+Startup serial output identifies
+`max_sleep_ms`; existing CSV schemas are unchanged, and `planned_us`/`sleep_ms`
+show the actual requested/returned durations.
+
+This changes only the maintenance cap, not the interrupt transaction, RX/ACK
+path or deadline calculation. Radio, keyboard, wheel and RTC wake remain armed.
+Battery status polling (normally 1 s), gauge refresh (5 s), low-battery checks
+(2 s), USB detection and non-deadline UI/background work resume on the next wake:
+while sleeping they may wait up to about thirty seconds plus processing overhead.
+Charging is hardware-controlled, not dependent on those polling intervals.
+No Wi-Fi/Bluetooth connection is active. This is not approval for a 300-second
+gap; longer gaps require explicit background-service scheduling. The minute
+logs run on the next maintenance wake and can be up to thirty seconds apart from
+an exact minute boundary. Instantaneous current samples taken while awake are
+not whole-cycle average current; compare SOC over hours and CPU sleep duty cycle.
+
+Charger polling is status-only, and USB Disk Mode cannot start
+without an awake UI action. Reminder deadlines, pending ACK/retries and outgoing
+queues retain their existing sleep vetoes; no background polling exception is
+being claimed as a hard deadline. CPU sleep still requires unplugged, screen-off
+idle. USB insertion alone is not an armed GPIO wake source: press a key/wheel to
+wake immediately, or wait for maintenance to detect it.
+
+Build with `pio run -e tlora_pager`. Display-only troubleshooting uses
+`tlora_pager_awake`; `tlora_pager_sleep_test` is a compatibility alias.
 
 ## References and scope
 
@@ -25,7 +52,7 @@ transition. The old experimental image should not be reused.
 
 ## Preflight and transition
 
-1. Require display-off, an enabled experiment, valid RTC/gauge, no USB power,
+1. Require display-off, enabled processor sleep, valid RTC/gauge, no USB power,
    active CDC or USB Disk Mode. Veto if keyboard/wheel press/BOOT is held.
 2. Require radio RX with no software IRQ, asserted DIO1, transmit, pairing,
    outstanding message/ACK/retry or queued outgoing work. This deliberately
@@ -61,7 +88,7 @@ transition. The old experimental image should not be reused.
     synthesizing a character or click. Never restart RX merely because sleep
     returned; the existing transport owns packet read/decrypt/deduplication/ACK.
 
-Any sleep/setup/restore API failure disables experimental CPU sleep until
+Any sleep/setup/restore API failure disables CPU sleep until
 reboot. Failed type restoration does NOT re-enable potentially level-triggered
 ISRs; the error log requests a restart. This avoids an interrupt storm, but
 normal input/radio operation cannot be promised after a hardware/driver restore
@@ -69,7 +96,7 @@ failure. The error code is retained in the diagnostic log.
 
 PocketPDA currently does not start Wi-Fi or Bluetooth. Future features enabling
 either must add a preflight veto or coordinated shutdown before explicit sleep;
-connections are not retained by this experiment.
+connections are not retained by this sleep implementation.
 
 ## GPIO contract
 
@@ -97,8 +124,8 @@ wall-clock deadline. A fresh second-resolution RTC sample is anchored to the
 monotonic time taken BEFORE the read. Subtract one second of quantization
 uncertainty, elapsed preflight/SD/setup time and a 2 ms entry margin.
 
-The internal timer uses the minimum of that deadline and a one-second
-housekeeping ceiling. The ceiling only shortens sleep; it cannot override a
+The internal timer uses the minimum of that deadline and the configured
+housekeeping ceiling (thirty seconds). The ceiling only shortens sleep; it cannot override a
 nearer deadline. Due, overdue or too-close deadlines veto sleep. Budget is
 rechecked at entry. Existing 250 ms timer and one-second reminder dispatch
 granularities still apply; this is not a hard real-time latency guarantee.
@@ -107,7 +134,7 @@ scan cost with large agendas before lengthening intervals or caching results.
 
 The external RTC stays powered. LVGL's tick callback uses `millis()`, backed by
 IDF's sleep-compensated monotonic timer. Compare actual `lv_tick_get()` advance
-against elapsed sleep and disable the experiment if it stalls. Never manually
+against elapsed sleep and disable processor sleep if it stalls. Never manually
 increment LVGL ticks. Animation callbacks resume on the next service pass.
 
 ## Diagnostics and tests
@@ -153,10 +180,6 @@ precise countdowns, fresh calendar/task edits, overdue reminders and concurrent
 reminders. Existing protocol-model tests remain; these are not an RF reception
 test or proof of ESP32 driver behaviour under physical interrupts.
 
-Physical acceptance still requires unplugged two-pager messaging/ACKs with
-screens off, packets during repeated transitions, keyboard first-key/modifiers,
-wheel wake, countdown plus simultaneous daily/calendar/task reminders, RTC and
-LVGL recovery, USB reconnect and lower measured standby current. SX1262 buffer
-overwrites during bursts and fast wheel edges remain hardware limitations to
-measure. Do not enable sleep in the default build until these pass. Use the
-stable `tlora_pager` upload for rollback without erasing settings or SD data.
+SX1262 buffer overwrites during bursts and fast wheel edges remain hardware
+limitations. Display-only troubleshooting firmware can be uploaded without
+erasing settings or SD data.

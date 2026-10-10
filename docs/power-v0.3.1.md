@@ -1,5 +1,8 @@
 # Power management v0.3.1
 
+Historical notes for v0.3.1. Current stable behavior is documented in
+[Power management v0.3.2](power-v0.3.2.md).
+
 The initial sleep experiment failed physical reception/wake testing and was
 rolled back on the test unit. The revised implementation and current behaviour
 are documented in [experimental light sleep](experimental-light-sleep.md).

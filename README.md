@@ -1,7 +1,8 @@
 # NeuroDivergent PDA
 
-Power-management v0.3.1 adds persistent power logs and experimental CPU sleep
-(disabled by default). See [GPIO audit, power modes and validation status](docs/power-v0.3.1.md).
+Stable firmware v0.3.2 enables deadline-aware light sleep with a 30-second
+maximum maintenance interval and persistent power logs.
+See [power management and usage](docs/power-v0.3.2.md).
 
 Phone-free personal organization firmware for the [LILYGO T-LoRa Pager](https://lilygo.cc/products/t-lora-pager), inspired by the practical strengths of classic Palm and Psion handhelds.
 

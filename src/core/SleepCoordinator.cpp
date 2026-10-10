@@ -55,7 +55,7 @@ void SleepCoordinator::begin(HardwareManager &hw,PowerManager &p,TimerService &t
     experimental_=POCKETPDA_EXPERIMENTAL_LIGHT_SLEEP;
     lastWakeUs_=esp_timer_get_time();
 #if POCKETPDA_POWER_DIAGNOSTICS
-    Serial.printf("[PocketPDA][power] mode=%s transition=2 radio=DIO1/14 keyboard=6 wheel=40,41,7\n",experimental_?"experimental-light-sleep":"display-only");
+    Serial.printf("[PocketPDA][power] mode=%s transition=2 max_sleep_ms=%u radio=DIO1/14 keyboard=6 wheel=40,41,7\n",experimental_?"light-sleep":"display-only",static_cast<unsigned>(POCKETPDA_LIGHT_SLEEP_MAX_MS));
 #endif
 }
 void SleepCoordinator::telemetry(time_t now) {
@@ -130,7 +130,7 @@ void SleepCoordinator::doLightSleep() {
         Deadline::wallDeadlineUs(wall_,reminders_->nextAlarm(),sampleUs));
     // A maintenance ceiling is NOT an application deadline. Always take the
     // earliest, subtract RTC quantization/setup time, and re-evaluate at entry.
-    const int64_t housekeepingUs=sampleUs+1000000;
+    const int64_t housekeepingUs=sampleUs+static_cast<int64_t>(POCKETPDA_LIGHT_SLEEP_MAX_MS)*1000;
     uint64_t budget=Deadline::sleepBudgetUs(esp_timer_get_time(),dueUs,housekeepingUs);
     if(!budget){blocked_=DeadlineDue;delay(1);return;}
     // Clear a latched external alarm only after the organizer services have run;

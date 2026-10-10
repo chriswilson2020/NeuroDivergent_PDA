@@ -1,5 +1,6 @@
 #include "core/SleepTransition.h"
 #include "core/Deadline.h"
+#include "core/PowerOptions.h"
 #include <cassert>
 #include <cstdio>
 #include <array>
@@ -80,5 +81,14 @@ int main(){
     const int64_t wallDue=Deadline::wallDeadlineUs(100,102,10000);
     assert(wallDue==1010000);
     assert(Deadline::sleepBudgetUs(900000,wallDue,2000000)==108000);
+    // Exercise the actual configured ceiling (run this test for 1s and 30s).
+    const int64_t sampled=10000000;
+    const int64_t ceiling=sampled+int64_t(POCKETPDA_LIGHT_SLEEP_MAX_MS)*1000;
+    assert(Deadline::sleepBudgetUs(sampled,0,ceiling)==uint64_t(POCKETPDA_LIGHT_SLEEP_MAX_MS)*1000-2000);
+    assert(Deadline::sleepBudgetUs(sampled+100000,0,ceiling)==uint64_t(POCKETPDA_LIGHT_SLEEP_MAX_MS)*1000-102000);
+    assert(Deadline::sleepBudgetUs(sampled,sampled+500000,ceiling)==498000);
+    assert(Deadline::sleepBudgetUs(sampled,sampled,ceiling)==0);
+    assert(Deadline::sleepBudgetUs(sampled,sampled-1,ceiling)==0);
+    assert(Deadline::sleepBudgetUs(ceiling,0,ceiling)==0);
     puts("sleep transition tests passed");
 }
