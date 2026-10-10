@@ -8,13 +8,14 @@ public:
     void begin(CalendarStore &, TaskStore &, RTCService &, Shell &);
     void update();
     time_t nextAlarm() const { return nextAlarm_; }
+    bool prepareSleep();
 
 private:
     static void snoozeCurrent(void *context);
     void setReminder(const char *title, const char *detail);
     void presentReminder();
     void snooze();
-    void reschedule(time_t now);
+    bool reschedule(time_t now);
 
     CalendarStore *calendar_ = nullptr;
     TaskStore *tasks_ = nullptr;

@@ -11,6 +11,19 @@
 
 volatile bool MessagingService::irq_=false; MessagingService*MessagingService::active_=nullptr;
 void MessagingService::radioIrq(){irq_=true;}
+bool MessagingService::processorSleepReady() const {
+    // Veto rather than postponing ACKs, pairing, retry timers or queued sends.
+    // Physical DIO1 also covers a packet arriving before its ISR can run.
+    return !irq_ && !digitalRead(LORA_IRQ) && state_==State::Receiving &&
+        !suspended_ && !pairing_ && !ackPending_ && !currentLocalId_ &&
+        messages_ && !messages_->nextPending();
+}
+void MessagingService::latchProcessorWake() {
+    // An edge may occur while CPU interrupt delivery is masked for sleep.
+    // SX1262 DIO1 stays asserted until readData clears it. Never clear IRQ here,
+    // restart RX or touch the packet buffer; the existing onIrq path owns that.
+    if(digitalRead(LORA_IRQ))irq_=true;
+}
 RadioRuntimeStats MessagingService::stats()const{RadioRuntimeStats value=stats_;const uint32_t elapsed=millis()-stateSince_;if(state_==State::Receiving)value.receiveMs+=elapsed;else if(state_==State::Transmitting)value.transmitMs+=elapsed;else if(state_==State::Sleeping)value.sleepMs+=elapsed;return value;}
 uint32_t MessagingService::nowEpoch(){struct tm t{};if(!rtc_||!rtc_->now(t))return millis()/1000;return static_cast<uint32_t>(mktime(&t));}
 void MessagingService::setState(State next){uint32_t now=millis(),elapsed=now-stateSince_;if(state_==State::Receiving)stats_.receiveMs+=elapsed;else if(state_==State::Transmitting)stats_.transmitMs+=elapsed;else if(state_==State::Sleeping)stats_.sleepMs+=elapsed;state_=next;stateSince_=now;}

@@ -123,9 +123,16 @@ void ReminderService::update() {
     }
 }
 
-void ReminderService::reschedule(time_t now) {
+bool ReminderService::prepareSleep() {
+    if(!calendar_||!tasks_||!rtc_||rtc_->revision()!=rtcRevision_)return false;
+    // Fresh SD-backed calendar scan includes edits outside the RAM window.
+    // Use the last processed time so due-but-not-yet-dispatched reminders veto.
+    return reschedule(lastWall_);
+}
+
+bool ReminderService::reschedule(time_t now) {
     time_t best = 0;
-    calendar_->nextReminderAfter(now, best);
+    const bool calendarReady=calendar_->nextReminderAfter(now, best);
     for (size_t i = 0; i < tasks_->count(); ++i) {
         const auto &task = tasks_->at(i);
         if (task.completed || !task.reminder || !task.dueYear) continue;
@@ -135,4 +142,5 @@ void ReminderService::reschedule(time_t now) {
     if (snoozeAt_ > now && (!best || snoozeAt_ < best)) best = snoozeAt_;
     nextAlarm_ = best;
     // The sleep coordinator owns the single hardware RTC alarm.
+    return calendarReady;
 }

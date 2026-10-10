@@ -16,6 +16,7 @@ public:
     time_t finishAt() const { return runtime_.finishAt; }
     int32_t remainingSeconds() const;
     time_t nextDeadline(time_t current) const;
+    int64_t nextSleepDeadlineUs(time_t current,int64_t sampledUs) const;
     const char *activeName() const { return runtime_.name; }
 
 private:

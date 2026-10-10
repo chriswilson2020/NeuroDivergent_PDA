@@ -36,6 +36,19 @@ time_t TimerService::nextDeadline(time_t current) const {
     }
     return best;
 }
+int64_t TimerService::nextSleepDeadlineUs(time_t current,int64_t sampledUs) const {
+    int64_t best=active()?finishMonotonicUs_:0;
+    if(store_)for(size_t i=0;i<store_->count();++i) {
+        const auto &p=store_->at(i);
+        if(p.type==1&&p.enabled) {
+            // Include alarms crossed since the last service pass, not tomorrow's
+            // occurrence when today's deadline still needs dispatching.
+            const time_t due=Deadline::daily(lastWall_,p.hour,p.minute);
+            best=Deadline::earliestUs(best,Deadline::wallDeadlineUs(current,due,sampledUs));
+        }
+    }
+    return best;
+}
 void TimerService::update() {
     if(!store_||!rtc_||!shell_||(lastCheckMs_&&millis()-lastCheckMs_<250))return;
     lastCheckMs_=millis();const time_t current=now();

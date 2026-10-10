@@ -17,4 +17,14 @@ inline uint32_t sleepBudgetMs(time_t now, time_t due, uint32_t cap) {
     const uint64_t ms=static_cast<uint64_t>(due-now)*1000;
     return ms<cap?static_cast<uint32_t>(ms):cap;
 }
+// External RTC reads have one-second resolution. Wake conservatively before
+// the earliest possible boundary, rather than rounding a deadline up.
+inline int64_t wallDeadlineUs(time_t now,time_t due,int64_t sampledUs) {
+    return due ? sampledUs+(static_cast<int64_t>(due)-now)*1000000-1000000 : 0;
+}
+inline int64_t earliestUs(int64_t a,int64_t b) { return !a?b:!b?a:a<b?a:b; }
+inline uint64_t sleepBudgetUs(int64_t nowUs,int64_t dueUs,int64_t housekeepingUs,uint32_t marginUs=2000) {
+    const int64_t end=earliestUs(dueUs,housekeepingUs);
+    return end>nowUs+marginUs?static_cast<uint64_t>(end-nowUs-marginUs):0;
+}
 }

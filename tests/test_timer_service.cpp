@@ -9,10 +9,17 @@ static void advance(RTCService &r,int seconds){r.wall+=seconds;fakeMs+=seconds*1
 int main(){
     setenv("TZ","UTC",1);tzset();RTCService rtc;tm t{};t.tm_year=126;t.tm_mon=9;t.tm_mday=10;t.tm_hour=8;t.tm_min=59;t.tm_sec=59;rtc.wall=mktime(&t);
     TimerStore store;Shell shell;TimerPreset alarm;alarm.type=1;alarm.id=1;store.presets.push_back(alarm);alarm.id=2;store.presets.push_back(alarm);
-    TimerService svc;svc.begin(store,rtc,shell);svc.update();advance(rtc,66);svc.update();
+    TimerService svc;svc.begin(store,rtc,shell);svc.update();
+    assert(svc.nextSleepDeadlineUs(rtc.wall,fakeUs)==fakeUs); // wake early for RTC's second quantization
+    assert(svc.nextSleepDeadlineUs(rtc.wall+2,fakeUs+2000000)<fakeUs+2000000); // crossed alarm cannot become tomorrow's
+    advance(rtc,66);svc.update();
     assert(shell.n.titles.size()==2); // both alarms survive a late wake
     advance(rtc,1);svc.update();assert(shell.n.titles.size()==2);
     TimerPreset countdown;countdown.minutes=15;assert(svc.start(countdown));
+    const int64_t precise=svc.nextSleepDeadlineUs(rtc.wall,fakeUs);
+    fakeUs+=123456;fakeMs+=123;
+    assert(svc.nextSleepDeadlineUs(rtc.wall,fakeUs)==precise); // no rounded-up countdown drift
+    fakeUs-=123456;fakeMs-=123;
     advance(rtc,60);assert(svc.remainingSeconds()==840);
     rtc.wall+=3600;++rtc.rev;svc.update();assert(svc.remainingSeconds()==840);
     assert(store.persisted.finishAt==rtc.wall+840); // persisted deadline follows explicit clock edit

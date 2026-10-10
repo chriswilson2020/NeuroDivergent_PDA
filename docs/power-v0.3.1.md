@@ -1,7 +1,14 @@
 # Power management v0.3.1
 
+The initial sleep experiment failed physical reception/wake testing and was
+rolled back on the test unit. The revised implementation and current behaviour
+are documented in [experimental light sleep](experimental-light-sleep.md).
+The 100 ms experiment description below is retained as the original audit;
+revision 2 uses deadline-bounded sleep with a one-second maintenance ceiling.
+
 Status: software implementation; physical acceptance pending. Processor sleep
-is OFF by default. No firmware was flashed during this change.
+is OFF by default. The production image has been flashed; experimental
+physical acceptance remains pending.
 
 ## Hardware and feasibility
 
@@ -98,6 +105,27 @@ Defaults in `src/core/PowerOptions.h` can be overridden in PlatformIO build flag
 Only development images should set experimental sleep to 1. Set unused rails
 off to 0 for the old rail baseline. Set both logging flags to 0 to disable new
 power instrumentation. Existing battery/memory/message serial logs remain.
+
+An isolated development environment enables CPU sleep without changing the
+production default:
+
+```
+pio run -e tlora_pager_sleep_test
+pio run -e tlora_pager_sleep_test -t upload --upload-port <confirmed-device-port>
+```
+
+Keep the other pager on `tlora_pager`. Disconnect USB and let the test pager's
+display turn off before testing; USB power or active serial inhibits CPU sleep.
+After testing, reconnect and download the SD log. Confirm `cpu_sleep_ms` and
+`wakes` increase during unplugged standby, with `sleep_errors` remaining zero.
+An enabled build alone does not prove sleep was entered or wake was reliable.
+Rollback uses the normal `tlora_pager` upload; do not erase flash or the SD card.
+
+2026-10-10: `tlora_pager_sleep_test` built successfully and was flashed to the
+user-confirmed test unit, MAC `e0:72:a1:b4:21:a8`; esptool verified the written
+hashes. The other pager was not flashed during this experiment. Native deadline,
+TimerService and messaging tests passed. Unplugged sleep/wake, reception and
+battery measurements are still pending; flashing is not physical acceptance.
 
 Every minute, serial and `/PocketPDA/logs/power.csv` record epoch, uptime,
 display state/time, radio RX/TX/sleep time, CPU awake/sleep time, wake count/cause,

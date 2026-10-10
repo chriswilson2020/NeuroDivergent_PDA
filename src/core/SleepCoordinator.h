@@ -8,6 +8,9 @@ public:
     void idle(bool usbDiskActive);
 private:
     void telemetry(time_t now);
+    uint32_t doPreflightSleep(bool usbDiskActive) const;
+    void doLightSleep();
+    void trace(const char *event,uint64_t plannedUs=0);
     HardwareManager *hw_=nullptr; PowerManager *power_=nullptr;
     TimerService *timers_=nullptr; ReminderService *reminders_=nullptr; MessagingService *radio_=nullptr;
     time_t armed_=0;
@@ -18,4 +21,7 @@ private:
     bool experimental_=false;
     uint32_t lastSleepMs_=0,lastTickAdvanceMs_=0;
     uint64_t lastWakePins_=0;
+    uint32_t attempts_=0,blocked_=0;
+    int32_t lastError_=0;
+    bool entryRecorded_=false;
 };

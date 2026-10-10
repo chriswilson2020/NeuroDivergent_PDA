@@ -14,7 +14,8 @@ public:
     bool startPairing(const char*code); void stopPairing(); bool pairing()const{return pairing_;}
     const char*status()const{return status_;} RadioRuntimeStats stats()const;
     void configurationChanged();
-    bool processorSleepReady() const { return !irq_ && state_!=State::Transmitting && !suspended_; }
+    bool processorSleepReady() const;
+    void latchProcessorWake();
     void setOpenConversationCallback(OpenConversationCallback callback,void*context){openCallback_=callback;openContext_=context;}
 private:
     enum class State:uint8_t{Sleeping,Receiving,Transmitting,WaitingAck};
