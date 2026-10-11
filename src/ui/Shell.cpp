@@ -41,7 +41,7 @@ void Shell::goToday() { openApp("today"); }
 void Shell::goTransition() { openApp("transition"); }
 void Shell::goCapture() { openApp("capture"); }
 void Shell::back() {
-    if(locked())return;
+    if(locked()){lock_.back();return;}
     if (notifications_.active()) notifications_.dismiss();
     else if (launcher_.visible()) closeLauncher();
     else toggleLauncher();

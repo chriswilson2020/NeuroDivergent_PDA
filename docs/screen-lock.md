@@ -6,6 +6,21 @@ or protection against someone removing the microSD card or reflashing hardware.
 
 ## Setup and use
 
+Settings → LOCK → OWNER edits optional name, phone and email shown on the initial
+locked screen. These details are intentionally public; for a child, use a parent's
+contact details, not a home address. Saving requires the current passcode if locking
+is enabled. Blank fields are allowed (clear all three to remove owner information).
+Owner details are device-local NVS data, separate from credentials and organizer
+backups. Application updates preserve them; restoring another pager's organizer
+does not replace them. A malformed owner record is ignored, without disabling the lock.
+
+On startup or inactivity locking, the owner screen appears first. A key, wheel
+interaction or UNLOCK PAGER opens passcode entry. BACK (or keyboard Escape) returns
+to owner details; keyboard Back deletes characters, returning to owner details
+when the passcode field is empty.
+After 15 seconds without input, passcode entry clears and returns to owner details.
+Neither screen reveals private notification contents or pauses background services.
+
 1. Open Settings → LOCK.
 2. Enter a six-character passcode (letters, numbers or a mixture) and repeat it in Confirm New. Letter case matters. Existing numeric PINs continue working unchanged.
 3. Choose Lock After Inactivity: 30 seconds, 1, 2, 5, 10 or 15 minutes.

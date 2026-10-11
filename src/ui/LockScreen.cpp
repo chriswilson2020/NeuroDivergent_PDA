@@ -13,22 +13,29 @@ void LockScreen::begin(PasscodeStore &store,Changed changed,void *context,uint64
     lv_obj_set_style_pad_all(root_,0,0);lv_obj_set_style_border_width(root_,0,0);lv_obj_set_style_radius(root_,0,0);lv_obj_set_scrollable(root_,false);
     auto *title=lv_label_create(root_);lv_label_set_text(title,"POCKETPDA LOCKED");lv_obj_set_pos(title,18,12);
     lv_obj_set_style_text_font(title,&lv_font_montserrat_20,0);
-    pin_=FormWidgets::text(root_,"6 letters / numbers",18,47,210,42);
+    entry_=lv_obj_create(root_);lv_obj_remove_style_all(entry_);lv_obj_set_size(entry_,480,222);lv_obj_set_scrollable(entry_,false);
+    pin_=FormWidgets::text(entry_,"6 letters / numbers",18,47,210,42);
     lv_textarea_set_password_mode(pin_,true);lv_textarea_set_password_show_time(pin_,0);
     lv_textarea_set_max_length(pin_,6);lv_textarea_set_accepted_chars(pin_,"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ");
     lv_obj_add_event_cb(pin_,submit,LV_EVENT_READY,this);
-    auto *unlock=FormWidgets::button(root_,"UNLOCK",18,98,210,36,true);lv_obj_add_event_cb(unlock,submit,LV_EVENT_CLICKED,this);
-    status_=lv_label_create(root_);lv_obj_set_pos(status_,18,145);lv_obj_set_width(status_,210);lv_label_set_long_mode(status_,LV_LABEL_LONG_WRAP);
-    alert_=lv_label_create(root_);lv_obj_set_pos(alert_,18,176);lv_obj_set_style_text_font(alert_,&lv_font_montserrat_12,0);
+    auto *unlock=FormWidgets::button(entry_,"UNLOCK",18,98,210,36,true);lv_obj_add_event_cb(unlock,submit,LV_EVENT_CLICKED,this);
+    status_=lv_label_create(entry_);lv_obj_set_pos(status_,18,145);lv_obj_set_width(status_,210);lv_label_set_long_mode(status_,LV_LABEL_LONG_WRAP);
+    alert_=lv_label_create(root_);lv_obj_set_pos(alert_,18,204);lv_obj_set_style_text_font(alert_,&lv_font_montserrat_12,0);
     lv_label_set_text(alert_,"Alert waiting - unlock to view");lv_obj_set_hidden(alert_,true);
-    auto *hint=lv_label_create(root_);lv_label_set_text(hint,"Type letters directly. Case matters.\nNumbers: ALT or wheel keypad.");lv_obj_set_pos(hint,18,188);lv_obj_set_style_text_font(hint,&lv_font_montserrat_12,0);
+    auto *hint=lv_label_create(entry_);lv_label_set_text(hint,"Type letters. Case matters.\nNumbers: ALT or keypad.");lv_obj_set_pos(hint,18,173);lv_obj_set_style_text_font(hint,&lv_font_montserrat_12,0);
     group_=lv_group_create();lv_group_add_obj(group_,pin_);lv_group_add_obj(group_,unlock);
     static const char *labels[]={"1","2","3","4","5","6","7","8","9","DEL","0","OK"};
     for(unsigned i=0;i<12;++i) {
-        auto *b=FormWidgets::button(root_,labels[i],251+(i%3)*72,43+(i/3)*42,65,36);
+        auto *b=FormWidgets::button(entry_,labels[i],251+(i%3)*72,43+(i/3)*42,65,36);
         lv_obj_set_user_data(b,reinterpret_cast<void*>(uintptr_t(i+1)));
         lv_obj_add_event_cb(b,digit,LV_EVENT_CLICKED,this);lv_group_add_obj(group_,b);
     }
+    auto *backButton=FormWidgets::button(entry_,"BACK",365,4,100,30);lv_obj_add_event_cb(backButton,backClicked,LV_EVENT_CLICKED,this);lv_group_add_obj(group_,backButton);
+    ownerView_=lv_obj_create(root_);lv_obj_remove_style_all(ownerView_);lv_obj_set_pos(ownerView_,18,43);lv_obj_set_size(ownerView_,444,158);lv_obj_set_scrollable(ownerView_,false);
+    ownerText_=lv_label_create(ownerView_);lv_obj_set_size(ownerText_,444,112);lv_label_set_long_mode(ownerText_,LV_LABEL_LONG_WRAP);
+    lv_obj_set_style_text_font(ownerText_,&lv_font_montserrat_12,0);
+    continue_=FormWidgets::button(ownerView_,"UNLOCK PAGER",0,119,210,34,true);lv_obj_add_event_cb(continue_,ownerClicked,LV_EVENT_CLICKED,this);
+    ownerGroup_=lv_group_create();lv_group_add_obj(ownerGroup_,continue_);
     lv_obj_set_hidden(root_,true);preferencesChanged(now);
     if(store.enabled())lock();
 }
@@ -39,11 +46,30 @@ void LockScreen::lock() {
     status(store_->fault()?"Lock settings error. Owner recovery required.":"Enter your passcode.");
     lv_obj_set_hidden(root_,false);lv_obj_move_foreground(root_);
     if(changed_)changed_(context_,true);
+    showOwner();
+}
+void LockScreen::showOwner() {
+    entering_=false;lv_textarea_set_text(pin_,"");
+    const auto &owner=store_->owner();char text[256];
+    snprintf(text,sizeof(text),"If found, please contact:\n%s\n%s\n%s",*owner.name?owner.name:"Owner details not set",owner.phone,owner.email);
+    lv_label_set_text(ownerText_,text);
+    lv_obj_set_hidden(entry_,true);lv_obj_set_hidden(ownerView_,false);ensureFocus();
+}
+void LockScreen::showEntry() {
+    entering_=true;entryActivity_=now_;lv_obj_set_hidden(ownerView_,true);lv_obj_set_hidden(entry_,false);
     FormFocus::enter(pin_);ensureFocus();
 }
+void LockScreen::activity(uint64_t now) {
+    policy_.activity(now);now_=now;
+    if(locked()){entryActivity_=now;if(!entering_)showEntry();}
+}
+void LockScreen::back() { if(locked())showOwner(); }
+void LockScreen::ownerClicked(lv_event_t *e) { auto *self=static_cast<LockScreen*>(lv_event_get_user_data(e));if(!self->entering_)self->showEntry(); }
+void LockScreen::backClicked(lv_event_t *e) { static_cast<LockScreen*>(lv_event_get_user_data(e))->back(); }
 void LockScreen::update(uint64_t now) {
     now_=now;if(policy_.expired(now))lock();
     if(!locked())return;
+    if(entering_&&now-entryActivity_>=15000)showOwner();
     const auto wait=policy_.waitSeconds(now);
     if(wait!=shownWait_) {
         shownWait_=wait;
@@ -52,12 +78,12 @@ void LockScreen::update(uint64_t now) {
     }
     ensureFocus();
 }
-void LockScreen::ensureFocus() { if(locked()){FormFocus::ensure(root_,nullptr,group_);FormFocus::bindInputs(group_);} }
+void LockScreen::ensureFocus() { if(locked()){auto *group=entering_?group_:ownerGroup_;FormFocus::ensure(entering_?entry_:ownerView_,nullptr,group);FormFocus::bindInputs(group);} }
 void LockScreen::setAlertPending(bool pending) { if(alert_)lv_obj_set_hidden(alert_,!pending); }
 void LockScreen::status(const char *text) { lv_label_set_text(status_,text); }
 void LockScreen::tryUnlock() {
     now_=esp_timer_get_time()/1000;
-    if(!locked()||!policy_.canTry(now_))return;
+    if(!locked()||!entering_||!policy_.canTry(now_))return;
     const char *pin=lv_textarea_get_text(pin_);
     if(!PasscodeStore::validPin(pin)){status("Enter six letters or numbers.");return;}
     const bool correct=store_->verify(pin);lv_textarea_set_text(pin_,"");

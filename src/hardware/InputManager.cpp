@@ -91,7 +91,11 @@ void InputManager::keyboardKey(lv_event_t *event) {
     // the app-level Back control.  ESC, when available, is always navigation.
     lv_group_t *group=lv_indev_get_group(keyboard);
     lv_obj_t *focused = group?lv_group_get_focused(group):nullptr;
-    if (key != LV_KEY_ESC && focused && lv_obj_check_type(focused, &lv_textarea_class)) return;
+    if (key != LV_KEY_ESC && focused && lv_obj_check_type(focused, &lv_textarea_class)) {
+        // Back edits a nonempty passcode; from an empty locked field it
+        // returns to the public owner screen instead of trapping the user.
+        if(!shell_->locked()||*lv_textarea_get_text(focused))return;
+    }
 
     lv_indev_stop_processing(keyboard);
     lv_indev_wait_release(keyboard);

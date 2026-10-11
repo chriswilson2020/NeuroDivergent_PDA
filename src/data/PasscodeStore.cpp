@@ -21,7 +21,7 @@ bool PasscodeStore::digest(const char *pin,const uint8_t *salt,uint8_t *out) {
     memset(input,0,sizeof(input));return ok;
 }
 bool PasscodeStore::load() {
-    Preferences p;record_={};fault_=false;
+    Preferences p;record_={};owner_={};fault_=false;
     if(!p.begin("pda-lock",false)){fault_=true;return false;}
     const auto size=p.getBytesLength("config");
     if(size) {
@@ -30,7 +30,23 @@ bool PasscodeStore::load() {
            saved.version!=1||saved.enabled>1||!validTimeout(saved.seconds))fault_=true;
         else record_=saved;
     }
+    Owner owner{};
+    if(p.getBytesLength("owner")==sizeof(owner)&&p.getBytes("owner",&owner,sizeof(owner))==sizeof(owner)&&
+       owner.version==1&&memchr(owner.name,0,sizeof(owner.name))&&memchr(owner.phone,0,sizeof(owner.phone))&&memchr(owner.email,0,sizeof(owner.email)))owner_=owner;
     p.end();return !fault_;
+}
+bool PasscodeStore::saveOwner(const char *current,const char *name,const char *phone,const char *email) {
+    if(fault_||(enabled()&&!verify(current)))return false;
+    Owner next{};
+    const auto copy=[](char *out,size_t capacity,const char *in) {
+        if(!in||strlen(in)>=capacity)return false;
+        for(const unsigned char *p=reinterpret_cast<const unsigned char*>(in);*p;++p)if(*p<32||*p==127)return false;
+        memcpy(out,in,strlen(in)+1);return true;
+    };
+    if(!copy(next.name,sizeof(next.name),name)||!copy(next.phone,sizeof(next.phone),phone)||!copy(next.email,sizeof(next.email),email))return false;
+    Preferences p;if(!p.begin("pda-lock",false))return false;
+    const bool ok=p.putBytes("owner",&next,sizeof(next))==sizeof(next);p.end();
+    if(ok)owner_=next;return ok;
 }
 bool PasscodeStore::verify(const char *pin) const {
     if(fault_||!record_.enabled||!validPin(pin))return false;

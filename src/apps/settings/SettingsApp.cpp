@@ -127,11 +127,12 @@ void SettingsApp::showLock() {
     lockStatus_=lv_label_create(root_);lv_obj_set_pos(lockStatus_,160,81);lv_obj_set_size(lockStatus_,306,50);
     lv_label_set_long_mode(lockStatus_,LV_LABEL_LONG_WRAP);lv_obj_set_style_text_font(lockStatus_,&lv_font_montserrat_12,0);
     lv_label_set_text(lockStatus_,store&&store->enabled()?"Enabled. Enter current PIN to change settings. Leave new PIN blank to keep it.":"Off. Set and confirm a PIN to enable. Required at startup and after inactivity.");
-    auto *save=FormWidgets::button(root_,"SAVE",0,143,96,38,true);lv_obj_add_event_cb(save,lockSaveClicked,LV_EVENT_CLICKED,this);
-    auto *disable=FormWidgets::button(root_,"DISABLE",103,143,110,38);lv_obj_add_event_cb(disable,lockDisableClicked,LV_EVENT_CLICKED,this);
-    auto *now=FormWidgets::button(root_,"LOCK NOW",220,143,132,38);lv_obj_add_event_cb(now,lockNowClicked,LV_EVENT_CLICKED,this);
+    auto *save=FormWidgets::button(root_,"SAVE",0,143,75,38,true);lv_obj_add_event_cb(save,lockSaveClicked,LV_EVENT_CLICKED,this);
+    auto *disable=FormWidgets::button(root_,"DISABLE",81,143,88,38);lv_obj_add_event_cb(disable,lockDisableClicked,LV_EVENT_CLICKED,this);
+    auto *now=FormWidgets::button(root_,"LOCK NOW",175,143,100,38);lv_obj_add_event_cb(now,lockNowClicked,LV_EVENT_CLICKED,this);
     if(!store||!store->enabled()){lv_obj_add_state(disable,LV_STATE_DISABLED);lv_obj_add_state(now,LV_STATE_DISABLED);}
-    auto *back=FormWidgets::button(root_,"BACK",359,143,107,38);lv_obj_add_event_cb(back,syncBackClicked,LV_EVENT_CLICKED,this);
+    auto *owner=FormWidgets::button(root_,"OWNER",281,143,90,38);lv_obj_add_event_cb(owner,ownerClicked,LV_EVENT_CLICKED,this);
+    auto *back=FormWidgets::button(root_,"BACK",377,143,89,38);lv_obj_add_event_cb(back,syncBackClicked,LV_EVENT_CLICKED,this);
     FormFocus::enter(store&&store->enabled()?currentPin_:newPin_);
 }
 void SettingsApp::saveLock(bool disable) {
@@ -155,3 +156,31 @@ void SettingsApp::saveLock(bool disable) {
 void SettingsApp::lockSaveClicked(lv_event_t *e) { static_cast<SettingsApp*>(lv_event_get_user_data(e))->saveLock(false); }
 void SettingsApp::lockDisableClicked(lv_event_t *e) { static_cast<SettingsApp*>(lv_event_get_user_data(e))->saveLock(true); }
 void SettingsApp::lockNowClicked(lv_event_t *e) { auto *self=static_cast<SettingsApp*>(lv_event_get_user_data(e));lv_textarea_set_text(self->currentPin_,"");lv_textarea_set_text(self->newPin_,"");lv_textarea_set_text(self->confirmPin_,"");self->shell_.lockNow(); }
+void SettingsApp::ownerClicked(lv_event_t *e) { static_cast<SettingsApp*>(lv_event_get_user_data(e))->showOwner(); }
+void SettingsApp::showOwner() {
+    FormFocus::View focusView(root_);lv_obj_clean(root_);
+    auto *store=shell_.passcodeStore();if(!store)return;
+    caption(root_,"OWNER & LOST DEVICE — optional; visible to anyone",0,0);
+    caption(root_,"NAME",0,21);caption(root_,"PHONE",238,21);
+    ownerName_=FormWidgets::text(root_,"Name",0,36,230,32);lv_textarea_set_max_length(ownerName_,39);
+    ownerPhone_=FormWidgets::text(root_,"Contact phone",238,36,228,32);lv_textarea_set_max_length(ownerPhone_,31);
+    caption(root_,"EMAIL",0,72);caption(root_,"CURRENT PASSCODE",310,72);
+    ownerEmail_=FormWidgets::text(root_,"Contact email",0,87,302,32);lv_textarea_set_max_length(ownerEmail_,63);
+    ownerPin_=FormWidgets::text(root_,"If lock enabled",310,87,156,32);
+    lv_textarea_set_max_length(ownerPin_,6);lv_textarea_set_password_mode(ownerPin_,true);lv_textarea_set_password_show_time(ownerPin_,0);
+    lv_textarea_set_accepted_chars(ownerPin_,"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ");
+    if(!store->enabled())lv_obj_add_state(ownerPin_,LV_STATE_DISABLED);
+    lv_textarea_set_text(ownerName_,store->owner().name);lv_textarea_set_text(ownerPhone_,store->owner().phone);lv_textarea_set_text(ownerEmail_,store->owner().email);
+    ownerStatus_=lv_label_create(root_);lv_obj_set_pos(ownerStatus_,0,124);lv_obj_set_width(ownerStatus_,466);lv_obj_set_style_text_font(ownerStatus_,&lv_font_montserrat_12,0);
+    lv_label_set_text(ownerStatus_,"For a child, use a parent/guardian's contact details.");
+    auto *save=FormWidgets::button(root_,"SAVE OWNER",0,146,220,35,true);lv_obj_add_event_cb(save,ownerSaveClicked,LV_EVENT_CLICKED,this);
+    auto *back=FormWidgets::button(root_,"BACK",238,146,228,35);lv_obj_add_event_cb(back,lockClicked,LV_EVENT_CLICKED,this);
+    FormFocus::enter(ownerName_);
+}
+void SettingsApp::ownerSaveClicked(lv_event_t *e) {
+    auto *self=static_cast<SettingsApp*>(lv_event_get_user_data(e));auto *store=self->shell_.passcodeStore();if(!store)return;
+    if(!store->saveOwner(lv_textarea_get_text(self->ownerPin_),lv_textarea_get_text(self->ownerName_),lv_textarea_get_text(self->ownerPhone_),lv_textarea_get_text(self->ownerEmail_))) {
+        lv_label_set_text(self->ownerStatus_,"Not saved. Check current passcode and field lengths.");return;
+    }
+    lv_textarea_set_text(self->ownerPin_,"");lv_label_set_text(self->ownerStatus_,"Saved. Shown first whenever the pager locks.");
+}

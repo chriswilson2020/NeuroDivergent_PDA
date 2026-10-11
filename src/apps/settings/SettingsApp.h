@@ -31,6 +31,9 @@ private:
     void save();
     void showSync();
     void showLock();
+    void showOwner();
+    static void ownerClicked(lv_event_t *);
+    static void ownerSaveClicked(lv_event_t *);
     static void lockClicked(lv_event_t *);
     static void lockSaveClicked(lv_event_t *);
     static void lockDisableClicked(lv_event_t *);
@@ -60,4 +63,5 @@ private:
     lv_obj_t *dim_ = nullptr;
     lv_obj_t *sleep_ = nullptr;
     lv_obj_t *currentPin_=nullptr,*newPin_=nullptr,*confirmPin_=nullptr,*lockTimeout_=nullptr,*lockStatus_=nullptr;
+    lv_obj_t *ownerName_=nullptr,*ownerPhone_=nullptr,*ownerEmail_=nullptr,*ownerPin_=nullptr,*ownerStatus_=nullptr;
 };

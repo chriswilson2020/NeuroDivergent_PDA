@@ -13,7 +13,14 @@ public:
     bool change(const char *current,const char *next,uint16_t seconds);
     static bool validPin(const char *pin);
     static bool validTimeout(uint16_t seconds);
+    struct Owner {
+        uint32_t version=1;
+        char name[40]{},phone[32]{},email[64]{};
+    };
+    const Owner &owner() const { return owner_; }
+    bool saveOwner(const char *current,const char *name,const char *phone,const char *email);
 private:
+    Owner owner_{};
     struct Record {
         uint32_t version=1;
         uint16_t seconds=120;

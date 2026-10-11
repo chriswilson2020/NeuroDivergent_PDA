@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <cstring>
 #include <algorithm>
+#include <string>
 static unsigned hapticCalls=0;
 void HapticService::play(uint8_t) { ++hapticCalls; }
 static bool isLocked=false;
@@ -39,6 +40,10 @@ int main() {
     policy.configure(false,30,1000000);assert(!policy.expired(2000000));
 
     PasscodeStore store;assert(store.load()&&!store.enabled());
+    assert(store.saveOwner("","Temporary owner","",""));
+    assert(store.saveOwner("","","","")&&!*store.owner().name);
+    Preferences::owner={1,2};PasscodeStore badOwner;assert(badOwner.load()&&!badOwner.enabled()&&!*badOwner.owner().name);
+    Preferences::owner.clear();
     assert(!store.change("","12345",30));assert(!store.change("","12345!",30));
     assert(!store.change("","abcdefg",30));assert(!store.change("","abc de",30));
     assert(!store.change("","123456",45));
@@ -60,6 +65,15 @@ int main() {
     Preferences::saved.clear();Preferences::failOpen=true;
     PasscodeStore unavailable;assert(!unavailable.load()&&unavailable.enabled());Preferences::failOpen=false;
     assert(store.change("","123456",30));
+    assert(!store.saveOwner("000000","Gabriel","+31 123456789","parent@example.com"));
+    const auto credentials=Preferences::saved;
+    assert(store.saveOwner("123456","Gabriel","+31 123456789","parent@example.com"));
+    assert(Preferences::saved==credentials&&store.verify("123456"));
+    PasscodeStore ownerReload;assert(ownerReload.load()&&!strcmp(ownerReload.owner().name,"Gabriel"));
+    Preferences::failWrite=true;assert(!store.saveOwner("123456","Wrong","",""));Preferences::failWrite=false;
+    assert(!strcmp(store.owner().name,"Gabriel"));
+    assert(!store.saveOwner("123456","Bad\nName","",""));
+    assert(!store.saveOwner("123456","Gabriel","",std::string(64,'x').c_str()));
 
     lv_init();lv_display_create(480,222);auto *group=lv_group_create();lv_group_set_default(group);
     auto *keyboard=lv_indev_create();lv_indev_set_type(keyboard,LV_INDEV_TYPE_KEYPAD);
@@ -68,7 +82,12 @@ int main() {
     FormFocus::enter(privateField);FormFocus::bindInputs(group);
     HapticService haptic;notifications.begin(lv_screen_active(),haptic);
     LockScreen lock;lock.begin(store,changed,nullptr,0);
-    assert(lock.locked()&&isLocked);auto *lockGroup=lv_indev_get_group(keyboard);
+    assert(lock.locked()&&isLocked&&!lock.enteringPasscode());
+    auto *ownerGroup=lv_indev_get_group(keyboard);assert(lv_group_get_obj_count(ownerGroup)==1);
+    notifications.show("Message","Private contents stay hidden");
+    assert(lv_indev_get_group(keyboard)==ownerGroup&&notifications.active());
+    notifications.dismiss();assert(notifications.active());hapticCalls=0;
+    lock.activity(0);assert(lock.enteringPasscode());auto *lockGroup=lv_indev_get_group(keyboard);
     assert(lockGroup!=group&&lv_indev_get_group(encoder)==lockGroup);
     auto *pin=lv_group_get_focused(lockGroup);
     assert(lv_obj_check_type(pin,&lv_textarea_class));
@@ -88,6 +107,7 @@ int main() {
     notifications.dismiss();FormFocus::bindInputs(group);
     hapticCalls=0;
     lock.update(34999);assert(!lock.locked());lock.update(35000);assert(lock.locked());
+    assert(!lock.enteringPasscode());lock.activity(35000);
     notifications.show("Timer","Time is up",nullptr,nullptr,nullptr,47,true);
     notifications.show("Daily alarm","Wake up",nullptr,nullptr,nullptr,47,true);
     notifications.show("Calendar","Lesson",nullptr,nullptr,nullptr,47,true);
@@ -104,6 +124,11 @@ int main() {
     lv_obj_send_event(findButton(lv_layer_top(),"OK"),LV_EVENT_CLICKED,nullptr);assert(!lock.locked());
     assert(store.change("123456","gabbyx",30));
     lock.preferencesChanged(35000);lock.lock();
+    assert(!lock.enteringPasscode());lock.activity(35000);
+    lv_textarea_set_text(pin,"secret");lock.back();assert(lock.locked()&&!lock.enteringPasscode()&&!*lv_textarea_get_text(pin));
+    lock.activity(35000);lv_textarea_set_text(pin,"secret");lock.update(50000);
+    assert(lock.locked()&&!lock.enteringPasscode()&&!*lv_textarea_get_text(pin));
+    lock.activity(50000);fakeLockUs=50000000;
     lv_textarea_set_text(pin,"");lv_group_focus_obj(pin);
     for(const char c: "gabbyx")if(c){uint32_t key=c;lv_obj_send_event(pin,LV_EVENT_KEY,&key);}
     assert(!strcmp(lv_textarea_get_text(pin),"gabbyx"));
