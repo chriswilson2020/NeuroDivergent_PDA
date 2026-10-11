@@ -39,7 +39,8 @@ int main() {
     policy.configure(false,30,1000000);assert(!policy.expired(2000000));
 
     PasscodeStore store;assert(store.load()&&!store.enabled());
-    assert(!store.change("","12345",30));assert(!store.change("","12345x",30));
+    assert(!store.change("","12345",30));assert(!store.change("","12345!",30));
+    assert(!store.change("","abcdefg",30));assert(!store.change("","abc de",30));
     assert(!store.change("","123456",45));
     assert(store.change("","123456",30)&&store.verify("123456")&&!store.verify("654321"));
     const auto saved=Preferences::saved;
@@ -50,7 +51,10 @@ int main() {
     assert(store.verify("123456")&&store.timeoutSeconds()==30);Preferences::failWrite=false;
     PasscodeStore reloaded;assert(reloaded.load()&&reloaded.verify("123456"));
     assert(store.change("123456","654321",60));assert(!store.verify("123456"));
-    assert(store.change("654321","",30)&&!store.enabled());
+    assert(store.change("654321","aB3def",30)&&store.verify("aB3def"));
+    assert(!store.verify("ab3def")); // Case-sensitive, with unchanged legacy numeric hashes.
+    PasscodeStore alphaReload;assert(alphaReload.load()&&alphaReload.verify("aB3def"));
+    assert(store.change("aB3def","",30)&&!store.enabled());
     Preferences::saved={1,2};PasscodeStore corrupt;assert(!corrupt.load()&&corrupt.enabled()&&corrupt.fault());
     assert(!corrupt.change("","123456",30));
     Preferences::saved.clear();Preferences::failOpen=true;
@@ -98,5 +102,11 @@ int main() {
         auto *button=findButton(lv_layer_top(),digit);assert(button);lv_obj_send_event(button,LV_EVENT_CLICKED,nullptr);
     }
     lv_obj_send_event(findButton(lv_layer_top(),"OK"),LV_EVENT_CLICKED,nullptr);assert(!lock.locked());
-    puts("Passcode persistence, validation, failure rollback, startup, inactivity, retry delay, modal privacy and keypad tests passed");
+    assert(store.change("123456","gabbyx",30));
+    lock.preferencesChanged(35000);lock.lock();
+    lv_textarea_set_text(pin,"");lv_group_focus_obj(pin);
+    for(const char c: "gabbyx")if(c){uint32_t key=c;lv_obj_send_event(pin,LV_EVENT_KEY,&key);}
+    assert(!strcmp(lv_textarea_get_text(pin),"gabbyx"));
+    lv_obj_send_event(unlock,LV_EVENT_CLICKED,nullptr);assert(!lock.locked());
+    puts("Passcode persistence, alphanumeric validation/unlock, failure rollback, startup, inactivity, retry delay, modal privacy and keypad tests passed");
 }

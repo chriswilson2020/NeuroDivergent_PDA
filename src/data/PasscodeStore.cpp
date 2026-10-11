@@ -6,7 +6,10 @@
 
 bool PasscodeStore::validPin(const char *pin) {
     if(!pin||strlen(pin)!=6)return false;
-    for(unsigned i=0;i<6;++i)if(pin[i]<'0'||pin[i]>'9')return false;
+    for(unsigned i=0;i<6;++i) {
+        const char c=pin[i];
+        if(!((c>='0'&&c<='9')||(c>='a'&&c<='z')||(c>='A'&&c<='Z')))return false;
+    }
     return true;
 }
 bool PasscodeStore::validTimeout(uint16_t seconds) {

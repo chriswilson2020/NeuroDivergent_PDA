@@ -13,15 +13,15 @@ void LockScreen::begin(PasscodeStore &store,Changed changed,void *context,uint64
     lv_obj_set_style_pad_all(root_,0,0);lv_obj_set_style_border_width(root_,0,0);lv_obj_set_style_radius(root_,0,0);lv_obj_set_scrollable(root_,false);
     auto *title=lv_label_create(root_);lv_label_set_text(title,"POCKETPDA LOCKED");lv_obj_set_pos(title,18,12);
     lv_obj_set_style_text_font(title,&lv_font_montserrat_20,0);
-    pin_=FormWidgets::text(root_,"6-digit PIN",18,47,210,42);
+    pin_=FormWidgets::text(root_,"6 letters / numbers",18,47,210,42);
     lv_textarea_set_password_mode(pin_,true);lv_textarea_set_password_show_time(pin_,0);
-    lv_textarea_set_max_length(pin_,6);lv_textarea_set_accepted_chars(pin_,"0123456789");
+    lv_textarea_set_max_length(pin_,6);lv_textarea_set_accepted_chars(pin_,"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ");
     lv_obj_add_event_cb(pin_,submit,LV_EVENT_READY,this);
     auto *unlock=FormWidgets::button(root_,"UNLOCK",18,98,210,36,true);lv_obj_add_event_cb(unlock,submit,LV_EVENT_CLICKED,this);
     status_=lv_label_create(root_);lv_obj_set_pos(status_,18,145);lv_obj_set_width(status_,210);lv_label_set_long_mode(status_,LV_LABEL_LONG_WRAP);
     alert_=lv_label_create(root_);lv_obj_set_pos(alert_,18,176);lv_obj_set_style_text_font(alert_,&lv_font_montserrat_12,0);
     lv_label_set_text(alert_,"Alert waiting - unlock to view");lv_obj_set_hidden(alert_,true);
-    auto *hint=lv_label_create(root_);lv_label_set_text(hint,"Use ALT + top row for numbers\nor select digits with the wheel.");lv_obj_set_pos(hint,18,188);lv_obj_set_style_text_font(hint,&lv_font_montserrat_12,0);
+    auto *hint=lv_label_create(root_);lv_label_set_text(hint,"Type letters directly. Case matters.\nNumbers: ALT or wheel keypad.");lv_obj_set_pos(hint,18,188);lv_obj_set_style_text_font(hint,&lv_font_montserrat_12,0);
     group_=lv_group_create();lv_group_add_obj(group_,pin_);lv_group_add_obj(group_,unlock);
     static const char *labels[]={"1","2","3","4","5","6","7","8","9","DEL","0","OK"};
     for(unsigned i=0;i<12;++i) {
@@ -59,7 +59,7 @@ void LockScreen::tryUnlock() {
     now_=esp_timer_get_time()/1000;
     if(!locked()||!policy_.canTry(now_))return;
     const char *pin=lv_textarea_get_text(pin_);
-    if(!PasscodeStore::validPin(pin)){status("Enter all six digits.");return;}
+    if(!PasscodeStore::validPin(pin)){status("Enter six letters or numbers.");return;}
     const bool correct=store_->verify(pin);lv_textarea_set_text(pin_,"");
     if(!correct){policy_.failed(now_);status("Incorrect passcode.");FormFocus::enter(pin_);update(now_);return;}
     policy_.unlock(now_);lv_obj_set_hidden(root_,true);

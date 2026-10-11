@@ -108,15 +108,15 @@ void SettingsApp::lockClicked(lv_event_t *e) { static_cast<SettingsApp*>(lv_even
 void SettingsApp::showLock() {
     FormFocus::View focusView(root_);
     if(syncTimer_){lv_timer_delete(syncTimer_);syncTimer_=nullptr;}
-    lv_obj_clean(root_);caption(root_,"SCREEN LOCK — six digits; ALT + top row enters numbers",0,0);
+    lv_obj_clean(root_);caption(root_,"SCREEN LOCK — 6 letters or numbers; case-sensitive",0,0);
     auto *store=shell_.passcodeStore();
     caption(root_,"CURRENT PIN",0,20);caption(root_,"NEW PIN",158,20);caption(root_,"CONFIRM NEW",316,20);
     currentPin_=FormWidgets::text(root_,"Current PIN",0,35,150,35);
-    newPin_=FormWidgets::text(root_,"6 digits",158,35,150,35);
+    newPin_=FormWidgets::text(root_,"6 letters / numbers",158,35,150,35);
     confirmPin_=FormWidgets::text(root_,"Repeat PIN",316,35,150,35);
     for(auto *field:{currentPin_,newPin_,confirmPin_}) {
         lv_textarea_set_max_length(field,6);lv_textarea_set_password_mode(field,true);
-        lv_textarea_set_password_show_time(field,0);lv_textarea_set_accepted_chars(field,"0123456789");
+        lv_textarea_set_password_show_time(field,0);lv_textarea_set_accepted_chars(field,"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ");
     }
     if(!store||!store->enabled())lv_obj_add_state(currentPin_,LV_STATE_DISABLED);
     caption(root_,"LOCK AFTER INACTIVITY",0,78);
@@ -142,7 +142,7 @@ void SettingsApp::saveLock(bool disable) {
     if(store->enabled()&&!store->verify(current)){lv_label_set_text(lockStatus_,"Current PIN is incorrect. Settings unchanged.");return;}
     if(!disable) {
         if(*next||*confirm||!store->enabled()) {
-            if(!PasscodeStore::validPin(next)||strcmp(next,confirm)){lv_label_set_text(lockStatus_,"Enter six digits twice. Both PINs must match.");return;}
+            if(!PasscodeStore::validPin(next)||strcmp(next,confirm)){lv_label_set_text(lockStatus_,"Enter 6 letters/numbers twice. Case must match.");return;}
         } else next=current;
     }
     static const uint16_t seconds[]={30,60,120,300,600,900};

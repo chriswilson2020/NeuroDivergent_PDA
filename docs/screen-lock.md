@@ -7,7 +7,7 @@ or protection against someone removing the microSD card or reflashing hardware.
 ## Setup and use
 
 1. Open Settings → LOCK.
-2. Enter a six-digit new PIN and repeat it in Confirm New.
+2. Enter a six-character passcode (letters, numbers or a mixture) and repeat it in Confirm New. Letter case matters. Existing numeric PINs continue working unchanged.
 3. Choose Lock After Inactivity: 30 seconds, 1, 2, 5, 10 or 15 minutes.
 4. Select Save. Lock Now is available immediately.
 
@@ -17,9 +17,9 @@ inactivity timeout. Incoming messages, reminder wake-ups and wall-clock changes
 do not. Processor light sleep is bounded by the lock deadline as well as
 organizer deadlines. The display's dim/off timeouts remain independent.
 
-Enter digits with ALT + the top keyboard row or select the on-screen keypad
+Type letters directly with the keyboard, without a modifier. Enter digits with ALT + the top keyboard row or select the on-screen keypad
 with the wheel. Unlock/OK and keyboard Enter submit. DEL or keyboard Back in
-the PIN field delete digits. Launcher shortcuts, Back navigation and a held
+the PIN field delete characters. Launcher shortcuts, Back navigation and a held
 wheel press cannot leave the lock screen.
 
 Messages, timers, calendar/task reminders and haptics keep working while locked.
@@ -43,7 +43,7 @@ separate NVS namespace. Organizer backups/restores, companion settings exports
 and ordinary application-only firmware updates do not overwrite this device's
 PIN. No existing data format or pairing keys are changed.
 
-A six-digit PIN and salted hash are not strong offline encryption. Retry delays
+A six-character passcode and salted hash are not strong offline encryption. Retry delays
 reset at reboot, but reboot still requires the PIN. This does not claim secure
 boot, flash encryption or resistance to physical hardware attacks.
 

@@ -102,7 +102,7 @@ another timezone offset. Organizer files on microSD are separate from NVS.
 
 - Rotate the wheel to move focus or scroll.
 - Press the wheel to activate the focused control or enter/leave text-editing mode.
-- Optional screen lock: Settings → LOCK lets you set a six-digit PIN and a 30-second to 15-minute inactivity timeout. Once enabled, the PIN is required at startup too. Use ALT + the keyboard's top row, or the wheel-operated keypad, to unlock. Keep a safe record of your PIN; there is no on-screen bypass.
+- Optional screen lock: Settings → LOCK lets you set a six-character passcode (letters and/or numbers, case-sensitive) and a 30-second to 15-minute inactivity timeout. Once enabled, the passcode is required at startup too. Type letters directly; numbers use ALT + the keyboard's top row or the wheel-operated keypad. Existing numeric PINs still work. Keep a safe record of your passcode; there is no on-screen bypass.
 - In a text field, the red border means editing: turn the wheel to move the cursor, then click it again to return to field navigation.
 - Hold the wheel button for 0.7 seconds to open the launcher from any app.
 - The physical Back key deletes inside an input field; outside an input it returns to the launcher or dismisses a dialog.
