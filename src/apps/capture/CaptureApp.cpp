@@ -1,3 +1,4 @@
+#include "ui/FormFocus.h"
 #include "CaptureApp.h"
 #include "data/NoteStore.h"
 #include "data/TaskStore.h"
@@ -18,7 +19,7 @@ void CaptureApp::create(lv_obj_t *parent) {
     detailField_ = FormWidgets::text(root_, "Optional details", 0, 84, 469, 52, false);
     lv_obj_t *task = FormWidgets::button(root_, "SAVE AS TASK", 0, 143, 225, 38, true); lv_obj_add_event_cb(task, taskClicked, LV_EVENT_CLICKED, this);
     lv_obj_t *note = FormWidgets::button(root_, "SAVE AS NOTE", 244, 143, 225, 38); lv_obj_add_event_cb(note, noteClicked, LV_EVENT_CLICKED, this);
-    lv_group_focus_obj(titleField_);
+    FormFocus::enter(titleField_);
 }
 
 void CaptureApp::destroy() {
@@ -26,10 +27,10 @@ void CaptureApp::destroy() {
     titleField_ = detailField_ = result_ = nullptr;
 }
 
-void CaptureApp::showResult(const char *text) {
+void CaptureApp::showResult(const char *text) {FormFocus::View focusView(root_);
     lv_label_set_text(result_, text);
     lv_textarea_set_text(titleField_, ""); lv_textarea_set_text(detailField_, "");
-    lv_group_focus_obj(titleField_);
+    FormFocus::enter(titleField_);
 }
 
 void CaptureApp::saveTask() {

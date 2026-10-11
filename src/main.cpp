@@ -334,6 +334,7 @@ void loop() {
         gnss.update(true);
     }
     lv_timer_handler();
+    if(!usbDisk.active()) shell.ensureFocus();
     if (millis() - lastMemoryLog >= 60000) {
         lastMemoryLog = millis();
         Serial.printf("[PocketPDA] heap=%u min=%u psram=%u\n", ESP.getFreeHeap(), ESP.getMinFreeHeap(), ESP.getFreePsram());

@@ -11,6 +11,7 @@ public:
     void begin(HardwareManager &hardware, App &todayApp, App &transitionApp, App &captureApp, App &calendarApp,
                App &tasksApp, App &assignmentsApp, App &packingApp, App &routinesApp, App &notesApp, App &clockApp, App &habitsApp, App &messagesApp, App &filesApp, App &settingsApp);
     void update();
+    void ensureFocus();
     void goToday();
     void goTransition();
     void goCapture();

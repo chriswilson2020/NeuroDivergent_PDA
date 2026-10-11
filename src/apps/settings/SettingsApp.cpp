@@ -57,7 +57,7 @@ void SettingsApp::shutdownClicked(lv_event_t *event) { auto *self = static_cast<
 void SettingsApp::confirmShutdown(void *context) { auto *self = static_cast<SettingsApp *>(context); self->gnss_.cancel(); if (!self->hardware_.shutdown()) { self->hardware_.setBrightness(self->power_.config().activeBrightness); self->shell_.notifications().show("USB-C CONNECTED", "Disconnect USB-C before shutting down."); } }
 
 void SettingsApp::syncClicked(lv_event_t *e){static_cast<SettingsApp*>(lv_event_get_user_data(e))->showSync();}
-void SettingsApp::showSync() {
+void SettingsApp::showSync() {FormFocus::View focusView(root_);
     lv_obj_clean(root_);caption(root_,"TIME SYNCHRONISATION",0,0);
     syncAuto_=lv_checkbox_create(root_);lv_checkbox_set_text(syncAuto_,"Auto");lv_obj_set_pos(syncAuto_,0,20);
     if(store_.timeSync().automatic)lv_obj_add_state(syncAuto_,LV_STATE_CHECKED);

@@ -25,6 +25,7 @@ private:
     void makePath(const char *name, char *output, size_t capacity) const;
     static void entryClicked(lv_event_t *event);
     static void upClicked(lv_event_t *event);
+    static void refreshClicked(lv_event_t *event);
     static void backClicked(lv_event_t *event);
     static void deleteClicked(lv_event_t *event);
     StorageService &storage_;

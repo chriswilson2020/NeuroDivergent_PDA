@@ -56,7 +56,7 @@ void InputManager::encoderLongPressed(lv_event_t *event) {
     lv_indev_reset(encoder,nullptr);lv_indev_wait_release(encoder);
     lv_event_stop_processing(event);shell_->goLauncher();
 }
-bool InputManager::insertIntoFocused(char character) { lv_obj_t *focused=lv_group_get_focused(lv_group_get_default());if(!focused||!lv_obj_check_type(focused,&lv_textarea_class))return false;lv_textarea_add_char(focused,character);return true; }
+bool InputManager::insertIntoFocused(char character) { auto *keyboard=lv_get_keyboard_indev();auto *group=keyboard?lv_indev_get_group(keyboard):lv_group_get_default();lv_obj_t *focused=group?lv_group_get_focused(group):nullptr;if(!focused||!lv_obj_check_type(focused,&lv_textarea_class))return false;lv_textarea_add_char(focused,character);return true; }
 template<char Character> void InputManager::altSymbol() { insertIntoFocused(Character); }
 void InputManager::todayShortcut() { if (shell_) shell_->goToday(); }
 void InputManager::launcherShortcut() { if (shell_) shell_->toggleLauncher(); }
@@ -66,7 +66,7 @@ void InputManager::altTodayShortcut() { if(!insertIntoFocused('5'))todayShortcut
 void InputManager::altLauncherShortcut() { if(!insertIntoFocused('@'))launcherShortcut(); }
 void InputManager::altCaptureShortcut() { if(!insertIntoFocused(';'))captureShortcut(); }
 void InputManager::altTransitionShortcut() { if(!insertIntoFocused(','))transitionShortcut(); }
-void InputManager::altDeleteShortcut() { lv_obj_t *focused=lv_group_get_focused(lv_group_get_default());if(focused&&lv_obj_check_type(focused,&lv_textarea_class))lv_textarea_delete_char(focused); }
+void InputManager::altDeleteShortcut() { auto *keyboard=lv_get_keyboard_indev();auto *group=keyboard?lv_indev_get_group(keyboard):lv_group_get_default();lv_obj_t *focused=group?lv_group_get_focused(group):nullptr;if(focused&&lv_obj_check_type(focused,&lv_textarea_class))lv_textarea_delete_char(focused); }
 void InputManager::keyboardKey(lv_event_t *event) {
     lv_indev_t *keyboard = lv_get_keyboard_indev();
     if (!shell_ || !keyboard || lv_indev_get_state(keyboard) != LV_INDEV_STATE_PRESSED) return;

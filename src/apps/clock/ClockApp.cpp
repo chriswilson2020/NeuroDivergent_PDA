@@ -1,3 +1,4 @@
+#include "ui/FormFocus.h"
 #include "ClockApp.h"
 #include "core/TimerService.h"
 #include "data/TimerStore.h"
@@ -23,7 +24,7 @@ void ClockApp::resume(){if(timer_)lv_timer_resume(timer_);refresh();}
 void ClockApp::suspend(){if(timer_)lv_timer_pause(timer_);}
 void ClockApp::destroy(){if(timer_){lv_timer_delete(timer_);timer_=nullptr;}if(root_){lv_obj_delete(root_);root_=nullptr;}timeLabel_=activeLabel_=nameField_=valueField_=typeDropdown_=vibeDropdown_=enabledCheck_=nullptr;}
 
-void ClockApp::showList(){
+void ClockApp::showList(){FormFocus::View focusView(root_);
     view_=View::List;editingId_=0;lv_obj_clean(root_);
     lv_obj_t *heading=lv_label_create(root_);lv_label_set_text(heading,"TIMERS & ALARMS");lv_obj_set_style_text_font(heading,&lv_font_montserrat_20,0);lv_obj_set_pos(heading,3,3);
     timeLabel_=lv_label_create(root_);lv_obj_set_style_text_font(timeLabel_,&lv_font_montserrat_18,0);lv_obj_align(timeLabel_,LV_ALIGN_TOP_RIGHT,-4,5);
@@ -38,7 +39,7 @@ void ClockApp::showList(){
     }
 }
 
-void ClockApp::showEditor(uint32_t id){
+void ClockApp::showEditor(uint32_t id){FormFocus::View focusView(root_);
     view_=View::Editor;editingId_=id;lv_obj_clean(root_);TimerPreset preset{};if(id){if(auto *found=store_.find(id))preset=*found;}else strlcpy(preset.name,"New timer",sizeof(preset.name));
     nameField_=FormWidgets::text(root_,"Name",0,0,260,38);lv_textarea_set_text(nameField_,preset.name);
     typeDropdown_=lv_dropdown_create(root_);lv_dropdown_set_options(typeDropdown_,"Timer\nDaily alarm");lv_dropdown_set_selected(typeDropdown_,preset.type?1:0);lv_obj_set_pos(typeDropdown_,268,0);lv_obj_set_size(typeDropdown_,105,38);
@@ -47,7 +48,7 @@ void ClockApp::showEditor(uint32_t id){
     enabledCheck_=lv_checkbox_create(root_);lv_checkbox_set_text(enabledCheck_,"Alarm enabled");lv_obj_set_pos(enabledCheck_,280,57);if(preset.enabled)lv_obj_add_state(enabledCheck_,LV_STATE_CHECKED);
     lv_obj_t *hint=lv_label_create(root_);lv_label_set_text(hint,"Timer: minutes (1-1440)   Alarm: 24-hour HH:MM");lv_obj_set_style_text_color(hint,Theme::color(0x6C716F),0);lv_obj_set_style_text_font(hint,&lv_font_montserrat_12,0);lv_obj_set_pos(hint,3,101);
     lv_obj_t *save=FormWidgets::button(root_,"SAVE",0,135,120,42,true);lv_obj_add_event_cb(save,saveClicked,LV_EVENT_CLICKED,this);lv_obj_t *back=FormWidgets::button(root_,"BACK",128,135,100,42);lv_obj_add_event_cb(back,backClicked,LV_EVENT_CLICKED,this);
-    if(id){lv_obj_t *del=FormWidgets::button(root_,"DELETE",349,135,120,42);lv_obj_add_event_cb(del,deleteClicked,LV_EVENT_CLICKED,this);}lv_group_focus_obj(nameField_);
+    if(id){lv_obj_t *del=FormWidgets::button(root_,"DELETE",349,135,120,42);lv_obj_add_event_cb(del,deleteClicked,LV_EVENT_CLICKED,this);}FormFocus::enter(nameField_);
 }
 
 void ClockApp::saveEditor(){

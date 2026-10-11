@@ -1,3 +1,4 @@
+#include "ui/FormFocus.h"
 #include "AssignmentsApp.h"
 #include "hardware/HapticService.h"
 #include "hardware/RTCService.h"
@@ -23,7 +24,7 @@ uint32_t AssignmentsApp::bestNext(uint32_t preferredId) const{
     const AssignmentRecord *best=nullptr;for(size_t i=0;i<store_.count();++i){const auto &r=store_.at(i);if(r.completed||!r.stepCount)continue;if(!best||dateKey(r)<dateKey(*best)||(dateKey(r)==dateKey(*best)&&r.priority>best->priority))best=&r;}return best?best->id:0;
 }
 
-void AssignmentsApp::showList(uint32_t preferredId){
+void AssignmentsApp::showList(uint32_t preferredId){FormFocus::View focusView(root_);
     view_=View::List;hasDraft_=false;lv_obj_clean(root_);lv_obj_t *heading=lv_label_create(root_);lv_label_set_text(heading,"ASSIGNMENT PLANNER");lv_obj_set_style_text_font(heading,&lv_font_montserrat_20,0);lv_obj_set_pos(heading,3,3);
     lv_obj_t *add=FormWidgets::button(root_,"+ NEW",385,0,84,31,true);lv_obj_add_event_cb(add,addClicked,LV_EVENT_CLICKED,this);
     const uint32_t nextId=bestNext(preferredId);AssignmentRecord *next=nextId?store_.find(nextId):nullptr;
@@ -38,14 +39,14 @@ void AssignmentsApp::showList(uint32_t preferredId){
     for(size_t i=0;i<store_.count();++i){const auto &r=store_.at(i);lv_obj_t *button=lv_button_create(list);Theme::styleButton(button,r.id==nextId);lv_obj_set_width(button,LV_PCT(100));lv_obj_set_height(button,34);lv_obj_set_user_data(button,reinterpret_cast<void*>(static_cast<uintptr_t>(r.id)));lv_obj_add_event_cb(button,itemClicked,LV_EVENT_CLICKED,this);char text[96];snprintf(text,sizeof(text),"%s%s  -  due %02u/%02u",r.completed?"[DONE] ":"",r.title,r.dueDay,r.dueMonth);lv_obj_t *label=lv_label_create(button);lv_label_set_text(label,text);lv_obj_set_style_text_font(label,&lv_font_montserrat_12,0);lv_obj_align(label,LV_ALIGN_LEFT_MID,0,0);}
 }
 
-void AssignmentsApp::showEditor(uint32_t id){
+void AssignmentsApp::showEditor(uint32_t id){FormFocus::View focusView(root_);
     view_=View::Editor;editingId_=id;lv_obj_clean(root_);if(!hasDraft_){draft_={};if(id){if(auto *found=store_.find(id))draft_=*found;}else{struct tm due{};rtc_.now(due);due.tm_mday+=7;due.tm_hour=12;due.tm_isdst=-1;mktime(&due);draft_.dueYear=due.tm_year+1900;draft_.dueMonth=due.tm_mon+1;draft_.dueDay=due.tm_mday;}hasDraft_=true;}
     titleField_=FormWidgets::text(root_,"Assignment title",0,0,469,36);lv_textarea_set_text(titleField_,draft_.title);
     dueField_=FormWidgets::text(root_,"YYYY-MM-DD",0,42,145,36);char date[16];snprintf(date,sizeof(date),"%04d-%02u-%02u",draft_.dueYear,draft_.dueMonth,draft_.dueDay);lv_textarea_set_text(dueField_,date);
     effortDropdown_=lv_dropdown_create(root_);lv_dropdown_set_options(effortDropdown_,"10 min\n15 min\n30 min\n45 min\n60 min\n90 min");lv_dropdown_set_selected(effortDropdown_,effortIndex(draft_.effortMinutes));lv_obj_set_pos(effortDropdown_,152,42);lv_obj_set_size(effortDropdown_,112,36);
     priorityDropdown_=lv_dropdown_create(root_);lv_dropdown_set_options(priorityDropdown_,"Low\nNormal\nHigh");lv_dropdown_set_selected(priorityDropdown_,draft_.priority);lv_obj_set_pos(priorityDropdown_,271,42);lv_obj_set_size(priorityDropdown_,110,36);
     stepsField_=FormWidgets::text(root_,"One small action per line (up to 6)",0,84,469,49,false);char steps[300]{};for(uint8_t i=0;i<draft_.stepCount;++i){if(i)strlcat(steps,"\n",sizeof(steps));strlcat(steps,draft_.steps[i],sizeof(steps));}lv_textarea_set_text(stepsField_,steps);
-    lv_obj_t *save=FormWidgets::button(root_,"SAVE",0,140,120,38,true);lv_obj_add_event_cb(save,saveClicked,LV_EVENT_CLICKED,this);lv_obj_t *back=FormWidgets::button(root_,"BACK",128,140,100,38);lv_obj_add_event_cb(back,backClicked,LV_EVENT_CLICKED,this);if(id){lv_obj_t *del=FormWidgets::button(root_,"DELETE",349,140,120,38);lv_obj_add_event_cb(del,deleteClicked,LV_EVENT_CLICKED,this);}lv_group_focus_obj(titleField_);
+    lv_obj_t *save=FormWidgets::button(root_,"SAVE",0,140,120,38,true);lv_obj_add_event_cb(save,saveClicked,LV_EVENT_CLICKED,this);lv_obj_t *back=FormWidgets::button(root_,"BACK",128,140,100,38);lv_obj_add_event_cb(back,backClicked,LV_EVENT_CLICKED,this);if(id){lv_obj_t *del=FormWidgets::button(root_,"DELETE",349,140,120,38);lv_obj_add_event_cb(del,deleteClicked,LV_EVENT_CLICKED,this);}FormFocus::enter(titleField_);
 }
 
 void AssignmentsApp::captureEditor(){

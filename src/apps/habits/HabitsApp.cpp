@@ -1,3 +1,4 @@
+#include "ui/FormFocus.h"
 #include "HabitsApp.h"
 #include "hardware/HapticService.h"
 #include "hardware/RTCService.h"
@@ -63,7 +64,7 @@ void HabitsApp::refreshDate() {
     yesterday_ = dateCode(previous);
 }
 
-void HabitsApp::showDashboard() {
+void HabitsApp::showDashboard() {FormFocus::View focusView(root_);
     view_ = View::Dashboard;
     editingId_ = 0;
     if (animationTimer_) { lv_timer_delete(animationTimer_); animationTimer_ = nullptr; }
@@ -167,7 +168,7 @@ void HabitsApp::showDashboard() {
     animationTimer_ = lv_timer_create(animationTick, 160, this);
 }
 
-void HabitsApp::showEditor(uint32_t id) {
+void HabitsApp::showEditor(uint32_t id) {FormFocus::View focusView(root_);
     view_ = View::Editor;
     editingId_ = id;
     if (animationTimer_) { lv_timer_delete(animationTimer_); animationTimer_ = nullptr; }
@@ -191,7 +192,7 @@ void HabitsApp::showEditor(uint32_t id) {
         lv_obj_t *remove = FormWidgets::button(root_, "DELETE", 345, 124, 120, 45);
         lv_obj_add_event_cb(remove, deleteClicked, LV_EVENT_CLICKED, this);
     }
-    lv_group_focus_obj(nameField_);
+    FormFocus::enter(nameField_);
 }
 
 HabitsApp::Mood HabitsApp::mood() const {

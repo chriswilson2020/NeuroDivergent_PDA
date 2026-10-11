@@ -2,6 +2,7 @@
 #include "EventBus.h"
 #include "hardware/HapticService.h"
 #include "ui/Theme.h"
+#include "ui/FormFocus.h"
 #include <Arduino.h>
 
 void NotificationManager::begin(lv_obj_t *screen, HapticService &haptic) {
@@ -14,6 +15,11 @@ void NotificationManager::begin(lv_obj_t *screen, HapticService &haptic) {
     lv_obj_t *label = lv_label_create(dismissButton_); lv_label_set_text(label, "DISMISS"); lv_obj_center(label);
     actionButton_ = lv_button_create(overlay_); Theme::styleButton(actionButton_, true); lv_obj_set_size(actionButton_, 120, 35); lv_obj_align(actionButton_, LV_ALIGN_BOTTOM_RIGHT, -36, 0); lv_obj_add_event_cb(actionButton_, actionClicked, LV_EVENT_CLICKED, this);
     actionLabel_ = lv_label_create(actionButton_); lv_label_set_text(actionLabel_, "OPEN"); lv_obj_center(actionLabel_);
+    // Modal controls use their own group: rotation cannot escape behind a
+    // reminder or confirmation into the obscured application.
+    group_ = lv_group_create();
+    lv_group_add_obj(group_,dismissButton_);
+    lv_group_add_obj(group_,actionButton_);
     lv_obj_set_hidden(overlay_, true);
 }
 void NotificationManager::show(const char *title, const char *detail, const char *actionLabel, NotificationAction action, void *context, uint8_t hapticEffect, bool wakeDisplay) {
@@ -35,14 +41,16 @@ void NotificationManager::show(const char *title, const char *detail, const char
     if(actionLabel) lv_label_set_text(actionLabel_, actionLabel);
     focusBefore_ = lv_group_get_focused(lv_group_get_default());
     lv_obj_set_hidden(overlay_, false); lv_obj_move_foreground(overlay_); active_ = true;
-    lv_group_focus_obj(dismissButton_);
+    FormFocus::enter(dismissButton_);
+    ensureFocus();
     if (haptic_) haptic_->play(hapticEffect);
     EventBus::instance().publish(SystemEvent::NotificationChanged);
 }
 void NotificationManager::dismiss() {
     if (!active_) return;
     lv_obj_set_hidden(overlay_, true); active_ = false;
-    if (focusBefore_ && lv_obj_is_valid(focusBefore_)) lv_group_focus_obj(focusBefore_);
+    FormFocus::bindInputs(lv_group_get_default());
+    FormFocus::enter(focusBefore_);
     focusBefore_ = nullptr;
     EventBus::instance().publish(SystemEvent::NotificationChanged);
     if(queueCount_){
@@ -51,6 +59,11 @@ void NotificationManager::dismiss() {
     }
 }
 void NotificationManager::dismissClicked(lv_event_t *event) { static_cast<NotificationManager *>(lv_event_get_user_data(event))->dismiss(); }
+void NotificationManager::ensureFocus() {
+    if(!active_) return;
+    FormFocus::ensure(overlay_,nullptr,group_);
+    FormFocus::bindInputs(group_);
+}
 void NotificationManager::actionClicked(lv_event_t *event) {
     auto *self=static_cast<NotificationManager *>(lv_event_get_user_data(event));
     auto action=self->action_;void*context=self->actionContext_;

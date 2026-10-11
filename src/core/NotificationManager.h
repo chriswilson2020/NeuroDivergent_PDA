@@ -10,6 +10,7 @@ public:
               NotificationAction action = nullptr, void *context = nullptr, uint8_t hapticEffect = 47,
               bool wakeDisplay = true);
     void dismiss();
+    void ensureFocus();
     bool active() const { return active_; }
     bool canAccept() const { return !active_ || queueCount_<kQueueCapacity; }
     const char *actionTitle() const { return actionTitle_; }
@@ -27,6 +28,7 @@ private:
     static void dismissClicked(lv_event_t *event);
     static void actionClicked(lv_event_t *event);
     lv_obj_t *overlay_ = nullptr;
+    lv_group_t *group_ = nullptr;
     lv_obj_t *title_ = nullptr;
     lv_obj_t *detail_ = nullptr;
     lv_obj_t *dismissButton_ = nullptr;

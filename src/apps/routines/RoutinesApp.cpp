@@ -1,3 +1,4 @@
+#include "ui/FormFocus.h"
 #include "RoutinesApp.h"
 #include "hardware/HapticService.h"
 #include "ui/FormWidgets.h"
@@ -24,7 +25,7 @@ void RoutinesApp::destroy() {
     titleField_ = stepsField_ = nullptr;
 }
 
-void RoutinesApp::showList() {
+void RoutinesApp::showList() {FormFocus::View focusView(root_);
     view_ = View::List; hasDraft_ = false; lv_obj_clean(root_);
     lv_obj_t *heading = lv_label_create(root_); lv_label_set_text(heading, "ROUTINES");
     lv_obj_set_style_text_font(heading, &lv_font_montserrat_20, 0); lv_obj_set_pos(heading, 5, 5);
@@ -50,7 +51,7 @@ void RoutinesApp::showList() {
     }
 }
 
-void RoutinesApp::showEditor(uint32_t id) {
+void RoutinesApp::showEditor(uint32_t id) {FormFocus::View focusView(root_);
     view_ = View::Editor; editingId_ = id; lv_obj_clean(root_);
     if (!hasDraft_) {
         draft_ = {};
@@ -69,7 +70,7 @@ void RoutinesApp::showEditor(uint32_t id) {
     lv_obj_t *save = FormWidgets::button(root_, "SAVE", 0, 134, 120, 42, true); lv_obj_add_event_cb(save, saveClicked, LV_EVENT_CLICKED, this);
     lv_obj_t *back = FormWidgets::button(root_, "BACK", 128, 134, 100, 42); lv_obj_add_event_cb(back, backClicked, LV_EVENT_CLICKED, this);
     if (id) { lv_obj_t *del = FormWidgets::button(root_, "DELETE", 349, 134, 120, 42); lv_obj_add_event_cb(del, deleteClicked, LV_EVENT_CLICKED, this); }
-    lv_group_focus_obj(titleField_);
+    FormFocus::enter(titleField_);
 }
 
 void RoutinesApp::captureEditor() {
@@ -86,7 +87,7 @@ void RoutinesApp::captureEditor() {
     hasDraft_ = true;
 }
 
-void RoutinesApp::showRun(uint32_t id, bool reset) {
+void RoutinesApp::showRun(uint32_t id, bool reset) {FormFocus::View focusView(root_);
     RoutineRecord *routine = store_.find(id);
     if (!routine) { showList(); return; }
     view_ = View::Run; runningId_ = id; if (reset) currentStep_ = 0; lv_obj_clean(root_);
@@ -101,7 +102,7 @@ void RoutinesApp::showRun(uint32_t id, bool reset) {
     lv_obj_t *back = FormWidgets::button(root_, "BACK", 0, 143, 95, 38); lv_obj_add_event_cb(back, backClicked, LV_EVENT_CLICKED, this);
     lv_obj_t *restart = FormWidgets::button(root_, "RESTART", 104, 143, 105, 38); lv_obj_add_event_cb(restart, restartClicked, LV_EVENT_CLICKED, this);
     lv_obj_t *next = FormWidgets::button(root_, currentStep_ + 1 < routine->stepCount ? "DONE / NEXT" : "FINISH", 286, 143, 183, 38, true);
-    lv_obj_add_event_cb(next, nextClicked, LV_EVENT_CLICKED, this); lv_group_focus_obj(next);
+    lv_obj_add_event_cb(next, nextClicked, LV_EVENT_CLICKED, this); FormFocus::enter(next);
 }
 
 void RoutinesApp::addClicked(lv_event_t *event) { auto *self = static_cast<RoutinesApp *>(lv_event_get_user_data(event)); self->hasDraft_ = false; self->showEditor(0); }

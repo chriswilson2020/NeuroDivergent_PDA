@@ -1,6 +1,7 @@
 #include "Shell.h"
 #include "Dialog.h"
 #include "Theme.h"
+#include "FormFocus.h"
 #include "hardware/HardwareManager.h"
 #include <cstdio>
 #include <cstring>
@@ -19,7 +20,13 @@ void Shell::begin(HardwareManager &hardware, App &todayApp, App &transitionApp, 
     notifications_.begin(screen, hardware.haptic);
     goToday();
 }
-void Shell::update() { status_.update(); status_.setNotification(notifications_.active()); }
+void Shell::update() { ensureFocus(); status_.update(); status_.setNotification(notifications_.active()); }
+void Shell::ensureFocus() {
+    if(notifications_.active()) { notifications_.ensureFocus(); return; }
+    FormFocus::bindInputs(lv_group_get_default());
+    if(launcher_.visible()) FormFocus::ensure(launcher_.root());
+    else if(apps_.active()) FormFocus::ensure(apps_.active()->root());
+}
 void Shell::goToday() { openApp("today"); }
 void Shell::goTransition() { openApp("transition"); }
 void Shell::goCapture() { openApp("capture"); }
@@ -35,14 +42,15 @@ void Shell::goLauncher() {
     // path behind the launcher overlay.
     if(apps_.active()&&apps_.active()->root())lv_obj_set_hidden(apps_.active()->root(),true);
     launcher_.show();
+    ensureFocus();
 }
 void Shell::closeLauncher() {
     launcher_.hide();
     if(apps_.active()&&apps_.active()->root())lv_obj_set_hidden(apps_.active()->root(),false);
-    if(focusBeforeLauncher_&&lv_obj_is_valid(focusBeforeLauncher_))lv_group_focus_obj(focusBeforeLauncher_);
+    if(apps_.active()) FormFocus::ensure(apps_.active()->root(),focusBeforeLauncher_);
     focusBeforeLauncher_=nullptr;
 }
-bool Shell::openApp(const char *id) { closeLauncher(); return apps_.launch(id); }
+bool Shell::openApp(const char *id) { closeLauncher(); const bool launched=apps_.launch(id); ensureFocus(); return launched; }
 void Shell::launcherAction(const char *id, const char *label) {
     if (openApp(id)) return;
     if (std::strcmp(id, "_haptic") == 0) { hardware_->haptic.play(47); notifications_.show("HAPTIC TEST", hardware_->haptic.available() ? "DRV2605 effect 47 played" : "Haptic driver not detected"); return; }
@@ -56,6 +64,7 @@ void Shell::screenKey(lv_event_t *event) {
     // Handling a bubbled copy here could toggle the launcher open then shut
     // again during a single physical key press.
     if (key == LV_KEY_NEXT) {
-        lv_group_focus_next(lv_group_get_default());
+        auto *input=lv_indev_active();
+        lv_group_focus_next(input?lv_indev_get_group(input):lv_group_get_default());
     }
 }

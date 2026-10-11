@@ -9,6 +9,7 @@ public:
     void hide();
     void toggle();
     bool visible() const;
+    lv_obj_t *root() const { return root_; }
 private:
     static void itemClicked(lv_event_t *event);
     lv_obj_t *root_ = nullptr;
