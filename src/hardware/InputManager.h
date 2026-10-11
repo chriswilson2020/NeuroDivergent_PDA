@@ -22,4 +22,8 @@ private:
     static void encoderShortClicked(lv_event_t *event);
     static void encoderLongPressed(lv_event_t *event);
     static Shell *shell_;
+    static lv_indev_read_cb_t keyboardRead_,encoderRead_;
+    static void readKeyboard(lv_indev_t *,lv_indev_data_t *);
+    static void readEncoder(lv_indev_t *,lv_indev_data_t *);
+    static void read(lv_indev_t *,lv_indev_data_t *,lv_indev_read_cb_t);
 };

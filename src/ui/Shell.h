@@ -1,10 +1,12 @@
 #pragma once
 #include "Launcher.h"
 #include "StatusBar.h"
+#include "LockScreen.h"
 #include "core/AppManager.h"
 #include "core/NotificationManager.h"
 #include <lvgl.h>
 class HardwareManager;
+class PasscodeStore;
 
 class Shell {
 public:
@@ -12,6 +14,13 @@ public:
                App &tasksApp, App &assignmentsApp, App &packingApp, App &routinesApp, App &notesApp, App &clockApp, App &habitsApp, App &messagesApp, App &filesApp, App &settingsApp);
     void update();
     void ensureFocus();
+    void beginLock(PasscodeStore &store);
+    void userActivity();
+    bool locked();
+    void lockNow() { lock_.lock(); }
+    void lockPreferencesChanged();
+    PasscodeStore *passcodeStore() const { return passcodes_; }
+    int64_t nextLockDeadlineUs() const { return static_cast<int64_t>(lock_.deadlineMs())*1000; }
     void goToday();
     void goTransition();
     void goCapture();
@@ -25,6 +34,9 @@ public:
 private:
     static void screenKey(lv_event_t *event);
     void closeLauncher();
+    static void lockChanged(void *context,bool locked);
+    LockScreen lock_;
+    PasscodeStore *passcodes_=nullptr;
     lv_obj_t *focusBeforeLauncher_=nullptr;
     HardwareManager *hardware_ = nullptr;
     lv_obj_t *appArea_ = nullptr;

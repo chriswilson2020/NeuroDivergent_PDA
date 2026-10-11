@@ -6,6 +6,7 @@ class SleepCoordinator {
 public:
     void begin(HardwareManager &,PowerManager &,TimerService &,ReminderService &,MessagingService &);
     void idle(bool usbDiskActive);
+    void setLockDeadlineUs(int64_t deadline) { lockDeadlineUs_=deadline; }
 private:
     void telemetry(time_t now);
     uint32_t doPreflightSleep(bool usbDiskActive) const;
@@ -23,5 +24,6 @@ private:
     uint64_t lastWakePins_=0;
     uint32_t attempts_=0,blocked_=0;
     int32_t lastError_=0;
+    int64_t lockDeadlineUs_=0;
     bool entryRecorded_=false;
 };

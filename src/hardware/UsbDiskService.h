@@ -14,6 +14,7 @@ public:
     void setFinishedCallback(FinishedCallback callback, void *context) { callback_ = callback; callbackContext_ = context; }
     void setStartedCallback(StartedCallback callback, void *context) { startedCallback_ = callback; startedContext_ = context; }
     bool begin(FinishedCallback callback, void *context);
+    void setAccessGuard(bool (*guard)(void *),void *context) { accessGuard_=guard;accessContext_=context; }
     void update();
     bool active() const { return active_; }
     const char *lastError() const { return lastError_; }
@@ -35,4 +36,6 @@ private:
     uint32_t lastStatusUpdate_ = 0;
     bool active_ = false;
     const char *lastError_ = "USB Disk Mode is unavailable.";
+    bool (*accessGuard_)(void *)=nullptr;
+    void *accessContext_=nullptr;
 };

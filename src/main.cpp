@@ -32,6 +32,7 @@
 #include "data/PackingStore.h"
 #include "data/RoutineStore.h"
 #include "data/SettingsStore.h"
+#include "data/PasscodeStore.h"
 #include "data/TaskStore.h"
 #include "data/TimerStore.h"
 #include "data/MessageStore.h"
@@ -47,6 +48,7 @@ static InputManager input;
 static PowerManager power;
 static SleepCoordinator sleepCoordinator;
 static SettingsStore settingsStore;
+static PasscodeStore passcodes;
 static MessagingSettingsStore messagingSettings;
 static CalendarStore calendarStore(hardware.storage, hardware.spi);
 static AssignmentStore assignmentStore(hardware.storage, hardware.spi);
@@ -282,6 +284,7 @@ void setup() {
     delay(100);
     Serial.println("\nPocketPDA v0.3.3");
     settingsStore.load();
+    passcodes.load();
     messagingSettings.load();
     const bool essentialHardwareReady = hardware.begin(messagingSettings.value().enabled);
     const bool storageReady = hardware.storage.mount(hardware.spi);
@@ -297,10 +300,12 @@ void setup() {
         messageStore.load();
     }
     shell.begin(hardware, today, transition, capture, calendar, tasks, assignments, packing, routines, notes, clockApp, habits, messages, files, settings);
+    shell.beginLock(passcodes);
     shell.setMessageUnread(messageStore.unreadCount());
     messaging.begin(hardware, messageStore, messagingSettings, hardware.rtc, shell);
     messaging.setOpenConversationCallback(openMessageConversation, &messages);
     usbDisk.setStartedCallback(usbDiskStarted, nullptr);
+    usbDisk.setAccessGuard([](void *){return !shell.locked();},nullptr);
     usbDisk.setFinishedCallback(usbDiskFinished, nullptr);
     backup.setRestoredCallback(dataRestored, nullptr);
     input.begin(shell);
@@ -335,6 +340,7 @@ void loop() {
     }
     lv_timer_handler();
     if(!usbDisk.active()) shell.ensureFocus();
+    sleepCoordinator.setLockDeadlineUs(shell.nextLockDeadlineUs());
     if (millis() - lastMemoryLog >= 60000) {
         lastMemoryLog = millis();
         Serial.printf("[PocketPDA] heap=%u min=%u psram=%u\n", ESP.getFreeHeap(), ESP.getMinFreeHeap(), ESP.getFreePsram());

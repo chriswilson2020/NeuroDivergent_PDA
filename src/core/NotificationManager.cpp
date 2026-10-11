@@ -40,14 +40,14 @@ void NotificationManager::show(const char *title, const char *detail, const char
     lv_obj_align(dismissButton_, action_ ? LV_ALIGN_BOTTOM_LEFT : LV_ALIGN_BOTTOM_MID, action_ ? 36 : 0, 0);
     if(actionLabel) lv_label_set_text(actionLabel_, actionLabel);
     focusBefore_ = lv_group_get_focused(lv_group_get_default());
-    lv_obj_set_hidden(overlay_, false); lv_obj_move_foreground(overlay_); active_ = true;
-    FormFocus::enter(dismissButton_);
+    lv_obj_set_hidden(overlay_, locked_); lv_obj_move_foreground(overlay_); active_ = true;
+    if(!locked_)FormFocus::enter(dismissButton_);
     ensureFocus();
     if (haptic_) haptic_->play(hapticEffect);
     EventBus::instance().publish(SystemEvent::NotificationChanged);
 }
 void NotificationManager::dismiss() {
-    if (!active_) return;
+    if (!active_||locked_) return;
     lv_obj_set_hidden(overlay_, true); active_ = false;
     FormFocus::bindInputs(lv_group_get_default());
     FormFocus::enter(focusBefore_);
@@ -60,12 +60,18 @@ void NotificationManager::dismiss() {
 }
 void NotificationManager::dismissClicked(lv_event_t *event) { static_cast<NotificationManager *>(lv_event_get_user_data(event))->dismiss(); }
 void NotificationManager::ensureFocus() {
-    if(!active_) return;
+    if(!active_||locked_) return;
     FormFocus::ensure(overlay_,nullptr,group_);
     FormFocus::bindInputs(group_);
 }
+void NotificationManager::setLocked(bool locked) {
+    locked_=locked;
+    lv_obj_set_hidden(overlay_,locked||!active_);
+    if(!locked)ensureFocus();
+}
 void NotificationManager::actionClicked(lv_event_t *event) {
     auto *self=static_cast<NotificationManager *>(lv_event_get_user_data(event));
+    if(self->locked_)return;
     auto action=self->action_;void*context=self->actionContext_;
     strlcpy(self->actionTitle_,lv_label_get_text(self->title_),sizeof(self->actionTitle_));
     strlcpy(self->actionDetail_,lv_label_get_text(self->detail_),sizeof(self->actionDetail_));

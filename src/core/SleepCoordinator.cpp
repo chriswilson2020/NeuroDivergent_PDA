@@ -126,8 +126,8 @@ void SleepCoordinator::doLightSleep() {
     if(!hw_->rtc.now(wall)){blocked_=Clock;return;}
     wall_=mktime(&wall);
     if(!reminders_->prepareSleep()){blocked_=ReminderScan;delay(1);return;}
-    const int64_t dueUs=Deadline::earliestUs(timers_->nextSleepDeadlineUs(wall_,sampleUs),
-        Deadline::wallDeadlineUs(wall_,reminders_->nextAlarm(),sampleUs));
+    const int64_t dueUs=Deadline::earliestUs(lockDeadlineUs_,Deadline::earliestUs(timers_->nextSleepDeadlineUs(wall_,sampleUs),
+        Deadline::wallDeadlineUs(wall_,reminders_->nextAlarm(),sampleUs)));
     // A maintenance ceiling is NOT an application deadline. Always take the
     // earliest, subtract RTC quantization/setup time, and re-evaluate at entry.
     const int64_t housekeepingUs=sampleUs+static_cast<int64_t>(POCKETPDA_LIGHT_SLEEP_MAX_MS)*1000;

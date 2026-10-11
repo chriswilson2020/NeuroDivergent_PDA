@@ -5,6 +5,7 @@
 #include "hardware/HardwareManager.h"
 #include <cstdio>
 #include <cstring>
+#include <esp_timer.h>
 
 void Shell::begin(HardwareManager &hardware, App &todayApp, App &transitionApp, App &captureApp, App &calendarApp,
                   App &tasksApp, App &assignmentsApp, App &packingApp, App &routinesApp, App &notesApp, App &clockApp, App &habitsApp, App &messagesApp, App &filesApp, App &settingsApp) {
@@ -20,8 +21,17 @@ void Shell::begin(HardwareManager &hardware, App &todayApp, App &transitionApp, 
     notifications_.begin(screen, hardware.haptic);
     goToday();
 }
-void Shell::update() { ensureFocus(); status_.update(); status_.setNotification(notifications_.active()); }
+void Shell::beginLock(PasscodeStore &store) { passcodes_=&store;lock_.begin(store,lockChanged,this,esp_timer_get_time()/1000); }
+bool Shell::locked() { lock_.update(esp_timer_get_time()/1000);return lock_.locked(); }
+void Shell::userActivity() { const auto now=esp_timer_get_time()/1000;lock_.update(now);lock_.activity(now); }
+void Shell::lockPreferencesChanged() { lock_.preferencesChanged(esp_timer_get_time()/1000); }
+void Shell::lockChanged(void *context,bool locked) {
+    auto *self=static_cast<Shell*>(context);self->notifications_.setLocked(locked);
+    if(!locked){lv_group_set_editing(lv_group_get_default(),false);self->ensureFocus();}
+}
+void Shell::update() { lock_.update(esp_timer_get_time()/1000);ensureFocus(); status_.update(); status_.setNotification(notifications_.active()); }
 void Shell::ensureFocus() {
+    if(lock_.locked()) { lock_.setAlertPending(notifications_.active());lock_.ensureFocus();return; }
     if(notifications_.active()) { notifications_.ensureFocus(); return; }
     FormFocus::bindInputs(lv_group_get_default());
     if(launcher_.visible()) FormFocus::ensure(launcher_.root());
@@ -31,12 +41,14 @@ void Shell::goToday() { openApp("today"); }
 void Shell::goTransition() { openApp("transition"); }
 void Shell::goCapture() { openApp("capture"); }
 void Shell::back() {
+    if(locked())return;
     if (notifications_.active()) notifications_.dismiss();
     else if (launcher_.visible()) closeLauncher();
     else toggleLauncher();
 }
-void Shell::toggleLauncher() { if(launcher_.visible())closeLauncher();else goLauncher(); }
+void Shell::toggleLauncher() { if(locked())return;if(launcher_.visible())closeLauncher();else goLauncher(); }
 void Shell::goLauncher() {
+    if(locked())return;
     if(!launcher_.visible())focusBeforeLauncher_=lv_group_get_focused(lv_group_get_default());
     // Hidden application controls must not remain in the encoder's navigation
     // path behind the launcher overlay.
@@ -50,7 +62,7 @@ void Shell::closeLauncher() {
     if(apps_.active()) FormFocus::ensure(apps_.active()->root(),focusBeforeLauncher_);
     focusBeforeLauncher_=nullptr;
 }
-bool Shell::openApp(const char *id) { closeLauncher(); const bool launched=apps_.launch(id); ensureFocus(); return launched; }
+bool Shell::openApp(const char *id) { if(locked())return false;closeLauncher(); const bool launched=apps_.launch(id); ensureFocus(); return launched; }
 void Shell::launcherAction(const char *id, const char *label) {
     if (openApp(id)) return;
     if (std::strcmp(id, "_haptic") == 0) { hardware_->haptic.play(47); notifications_.show("HAPTIC TEST", hardware_->haptic.available() ? "DRV2605 effect 47 played" : "Haptic driver not detected"); return; }

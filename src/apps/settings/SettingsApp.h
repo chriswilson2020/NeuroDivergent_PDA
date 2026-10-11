@@ -30,6 +30,12 @@ private:
     static void confirmShutdown(void *context);
     void save();
     void showSync();
+    void showLock();
+    static void lockClicked(lv_event_t *);
+    static void lockSaveClicked(lv_event_t *);
+    static void lockDisableClicked(lv_event_t *);
+    static void lockNowClicked(lv_event_t *);
+    void saveLock(bool disable);
     void refreshSync();
     static void syncClicked(lv_event_t *);
     static void syncNowClicked(lv_event_t *);
@@ -53,4 +59,5 @@ private:
     lv_obj_t *brightness_ = nullptr;
     lv_obj_t *dim_ = nullptr;
     lv_obj_t *sleep_ = nullptr;
+    lv_obj_t *currentPin_=nullptr,*newPin_=nullptr,*confirmPin_=nullptr,*lockTimeout_=nullptr,*lockStatus_=nullptr;
 };

@@ -1,4 +1,5 @@
 #include "SettingsApp.h"
+#include "data/PasscodeStore.h"
 #include "core/BackupService.h"
 #include "core/PowerManager.h"
 #include "core/GnssTimeService.h"
@@ -11,6 +12,8 @@
 #include "ui/Theme.h"
 #include <SD.h>
 #include <cstdio>
+#include <cstring>
+#include <initializer_list>
 #include <time.h>
 
 namespace {
@@ -32,6 +35,7 @@ void SettingsApp::create(lv_obj_t *parent) {
     sleep_ = lv_dropdown_create(root_); lv_dropdown_set_options(sleep_, "2 min\n5 min\n10 min"); lv_obj_set_pos(sleep_, 155, 74); lv_obj_set_size(sleep_, 145, 35); const uint16_t sleepValues[] = {120,300,600}; lv_dropdown_set_selected(sleep_, nearestIndex(store_.value().sleepSeconds, sleepValues));
     lv_obj_t *storage = lv_label_create(root_); if (hardware_.storage.mounted()) { SPIBusManager::Guard guard(hardware_.spi); if (guard) lv_label_set_text_fmt(storage, "microSD: %llu MB", static_cast<unsigned long long>(SD.cardSize() / 1024 / 1024)); else lv_label_set_text(storage, "microSD: busy"); } else lv_label_set_text(storage, "microSD: not mounted"); lv_obj_set_style_text_font(storage, &lv_font_montserrat_12, 0); lv_obj_set_pos(storage, 315, 72);
     auto *sync=FormWidgets::button(root_,"TIME SYNC",315,94,145,30);lv_obj_add_event_cb(sync,syncClicked,LV_EVENT_CLICKED,this);
+    auto *lock=FormWidgets::button(root_,"LOCK",370,17,99,35);lv_obj_add_event_cb(lock,lockClicked,LV_EVENT_CLICKED,this);
     lv_obj_t *saveButton = FormWidgets::button(root_, "SAVE", 0, 130, 78, 45, true); lv_obj_add_event_cb(saveButton, saveClicked, LV_EVENT_CLICKED, this);
     lv_obj_t *backupButton = FormWidgets::button(root_, "BACKUP", 84, 130, 88, 45); lv_obj_add_event_cb(backupButton, backupClicked, LV_EVENT_CLICKED, this);
     lv_obj_t *restoreButton = FormWidgets::button(root_, "RESTORE", 178, 130, 91, 45); lv_obj_add_event_cb(restoreButton, restoreClicked, LV_EVENT_CLICKED, this);
@@ -99,3 +103,55 @@ void SettingsApp::syncSaveClicked(lv_event_t *e){
     if(zoneChanged)s->rtc_.timezoneChanged();s->gnss_.preferencesChanged();s->refreshSync();
 }
 void SettingsApp::syncBackClicked(lv_event_t *e){auto *s=static_cast<SettingsApp*>(lv_event_get_user_data(e));lv_obj_t *parent=lv_obj_get_parent(s->root_);s->destroy();s->create(parent);}
+
+void SettingsApp::lockClicked(lv_event_t *e) { static_cast<SettingsApp*>(lv_event_get_user_data(e))->showLock(); }
+void SettingsApp::showLock() {
+    FormFocus::View focusView(root_);
+    if(syncTimer_){lv_timer_delete(syncTimer_);syncTimer_=nullptr;}
+    lv_obj_clean(root_);caption(root_,"SCREEN LOCK — six digits; ALT + top row enters numbers",0,0);
+    auto *store=shell_.passcodeStore();
+    caption(root_,"CURRENT PIN",0,20);caption(root_,"NEW PIN",158,20);caption(root_,"CONFIRM NEW",316,20);
+    currentPin_=FormWidgets::text(root_,"Current PIN",0,35,150,35);
+    newPin_=FormWidgets::text(root_,"6 digits",158,35,150,35);
+    confirmPin_=FormWidgets::text(root_,"Repeat PIN",316,35,150,35);
+    for(auto *field:{currentPin_,newPin_,confirmPin_}) {
+        lv_textarea_set_max_length(field,6);lv_textarea_set_password_mode(field,true);
+        lv_textarea_set_password_show_time(field,0);lv_textarea_set_accepted_chars(field,"0123456789");
+    }
+    if(!store||!store->enabled())lv_obj_add_state(currentPin_,LV_STATE_DISABLED);
+    caption(root_,"LOCK AFTER INACTIVITY",0,78);
+    lockTimeout_=lv_dropdown_create(root_);lv_obj_set_pos(lockTimeout_,0,94);lv_obj_set_size(lockTimeout_,150,34);
+    lv_dropdown_set_options(lockTimeout_,"30 seconds\n1 minute\n2 minutes\n5 minutes\n10 minutes\n15 minutes");
+    static const uint16_t seconds[]={30,60,120,300,600,900};
+    for(unsigned i=0;i<6;++i)if(store&&seconds[i]==store->timeoutSeconds())lv_dropdown_set_selected(lockTimeout_,i);
+    lockStatus_=lv_label_create(root_);lv_obj_set_pos(lockStatus_,160,81);lv_obj_set_size(lockStatus_,306,50);
+    lv_label_set_long_mode(lockStatus_,LV_LABEL_LONG_WRAP);lv_obj_set_style_text_font(lockStatus_,&lv_font_montserrat_12,0);
+    lv_label_set_text(lockStatus_,store&&store->enabled()?"Enabled. Enter current PIN to change settings. Leave new PIN blank to keep it.":"Off. Set and confirm a PIN to enable. Required at startup and after inactivity.");
+    auto *save=FormWidgets::button(root_,"SAVE",0,143,96,38,true);lv_obj_add_event_cb(save,lockSaveClicked,LV_EVENT_CLICKED,this);
+    auto *disable=FormWidgets::button(root_,"DISABLE",103,143,110,38);lv_obj_add_event_cb(disable,lockDisableClicked,LV_EVENT_CLICKED,this);
+    auto *now=FormWidgets::button(root_,"LOCK NOW",220,143,132,38);lv_obj_add_event_cb(now,lockNowClicked,LV_EVENT_CLICKED,this);
+    if(!store||!store->enabled()){lv_obj_add_state(disable,LV_STATE_DISABLED);lv_obj_add_state(now,LV_STATE_DISABLED);}
+    auto *back=FormWidgets::button(root_,"BACK",359,143,107,38);lv_obj_add_event_cb(back,syncBackClicked,LV_EVENT_CLICKED,this);
+    FormFocus::enter(store&&store->enabled()?currentPin_:newPin_);
+}
+void SettingsApp::saveLock(bool disable) {
+    auto *store=shell_.passcodeStore();if(!store)return;
+    const char *current=lv_textarea_get_text(currentPin_);
+    const char *next=lv_textarea_get_text(newPin_);
+    const char *confirm=lv_textarea_get_text(confirmPin_);
+    if(store->enabled()&&!store->verify(current)){lv_label_set_text(lockStatus_,"Current PIN is incorrect. Settings unchanged.");return;}
+    if(!disable) {
+        if(*next||*confirm||!store->enabled()) {
+            if(!PasscodeStore::validPin(next)||strcmp(next,confirm)){lv_label_set_text(lockStatus_,"Enter six digits twice. Both PINs must match.");return;}
+        } else next=current;
+    }
+    static const uint16_t seconds[]={30,60,120,300,600,900};
+    if(!store->change(current,disable?"":next,seconds[lv_dropdown_get_selected(lockTimeout_)])) {
+        lv_label_set_text(lockStatus_,"Could not save lock settings. Nothing changed.");return;
+    }
+    shell_.lockPreferencesChanged();showLock();
+    lv_label_set_text(lockStatus_,disable?"Screen lock disabled.":"Saved. PIN required at startup and after inactivity.");
+}
+void SettingsApp::lockSaveClicked(lv_event_t *e) { static_cast<SettingsApp*>(lv_event_get_user_data(e))->saveLock(false); }
+void SettingsApp::lockDisableClicked(lv_event_t *e) { static_cast<SettingsApp*>(lv_event_get_user_data(e))->saveLock(true); }
+void SettingsApp::lockNowClicked(lv_event_t *e) { auto *self=static_cast<SettingsApp*>(lv_event_get_user_data(e));lv_textarea_set_text(self->currentPin_,"");lv_textarea_set_text(self->newPin_,"");lv_textarea_set_text(self->confirmPin_,"");self->shell_.lockNow(); }

@@ -4,6 +4,16 @@
 #include <LV_Helper.h>
 
 Shell *InputManager::shell_ = nullptr;
+lv_indev_read_cb_t InputManager::keyboardRead_=nullptr,InputManager::encoderRead_=nullptr;
+void InputManager::read(lv_indev_t *input,lv_indev_data_t *data,lv_indev_read_cb_t original) {
+    // Check expiry BEFORE the driver invokes ALT combo callbacks or LVGL
+    // dispatches the wake-up key to the formerly focused app control.
+    if(shell_)shell_->locked();
+    if(original)original(input,data);
+    if(shell_&&(data->state==LV_INDEV_STATE_PRESSED||data->enc_diff))shell_->userActivity();
+}
+void InputManager::readKeyboard(lv_indev_t *i,lv_indev_data_t *d) { read(i,d,keyboardRead_); }
+void InputManager::readEncoder(lv_indev_t *i,lv_indev_data_t *d) { read(i,d,encoderRead_); }
 void InputManager::begin(Shell &shell) {
     shell_ = &shell;
     // Space is LilyGo's native temporary symbol modifier.  Mirror the same
@@ -25,9 +35,13 @@ void InputManager::begin(Shell &shell) {
     instance.kb.registerKeyCombo(ModifierKey::ALT, 'm', altSymbol<'.'>);
     instance.kb.registerKeyCombo(ModifierKey::ALT, 0x1D, altDeleteShortcut);
     if (lv_indev_t *keyboard = lv_get_keyboard_indev()) {
+        if(lv_indev_get_read_cb(keyboard)!=readKeyboard)keyboardRead_=lv_indev_get_read_cb(keyboard);
+        lv_indev_set_read_cb(keyboard,readKeyboard);
         lv_indev_add_event_cb(keyboard, keyboardKey, LV_EVENT_KEY, nullptr);
     }
     if (lv_indev_t *encoder = lv_get_encoder_indev()) {
+        if(lv_indev_get_read_cb(encoder)!=readEncoder)encoderRead_=lv_indev_get_read_cb(encoder);
+        lv_indev_set_read_cb(encoder,readEncoder);
         lv_indev_add_event_cb(encoder, encoderShortClicked, LV_EVENT_SHORT_CLICKED, nullptr);
         lv_indev_add_event_cb(encoder, encoderLongPressed, LV_EVENT_LONG_PRESSED, nullptr);
         lv_indev_set_long_press_time(encoder,700);
@@ -56,7 +70,7 @@ void InputManager::encoderLongPressed(lv_event_t *event) {
     lv_indev_reset(encoder,nullptr);lv_indev_wait_release(encoder);
     lv_event_stop_processing(event);shell_->goLauncher();
 }
-bool InputManager::insertIntoFocused(char character) { auto *keyboard=lv_get_keyboard_indev();auto *group=keyboard?lv_indev_get_group(keyboard):lv_group_get_default();lv_obj_t *focused=group?lv_group_get_focused(group):nullptr;if(!focused||!lv_obj_check_type(focused,&lv_textarea_class))return false;lv_textarea_add_char(focused,character);return true; }
+bool InputManager::insertIntoFocused(char character) { if(shell_)shell_->userActivity(); auto *keyboard=lv_get_keyboard_indev();auto *group=keyboard?lv_indev_get_group(keyboard):lv_group_get_default();lv_obj_t *focused=group?lv_group_get_focused(group):nullptr;if(!focused||!lv_obj_check_type(focused,&lv_textarea_class))return false;lv_textarea_add_char(focused,character);return true; }
 template<char Character> void InputManager::altSymbol() { insertIntoFocused(Character); }
 void InputManager::todayShortcut() { if (shell_) shell_->goToday(); }
 void InputManager::launcherShortcut() { if (shell_) shell_->toggleLauncher(); }
@@ -66,7 +80,7 @@ void InputManager::altTodayShortcut() { if(!insertIntoFocused('5'))todayShortcut
 void InputManager::altLauncherShortcut() { if(!insertIntoFocused('@'))launcherShortcut(); }
 void InputManager::altCaptureShortcut() { if(!insertIntoFocused(';'))captureShortcut(); }
 void InputManager::altTransitionShortcut() { if(!insertIntoFocused(','))transitionShortcut(); }
-void InputManager::altDeleteShortcut() { auto *keyboard=lv_get_keyboard_indev();auto *group=keyboard?lv_indev_get_group(keyboard):lv_group_get_default();lv_obj_t *focused=group?lv_group_get_focused(group):nullptr;if(focused&&lv_obj_check_type(focused,&lv_textarea_class))lv_textarea_delete_char(focused); }
+void InputManager::altDeleteShortcut() { if(shell_)shell_->userActivity(); auto *keyboard=lv_get_keyboard_indev();auto *group=keyboard?lv_indev_get_group(keyboard):lv_group_get_default();lv_obj_t *focused=group?lv_group_get_focused(group):nullptr;if(focused&&lv_obj_check_type(focused,&lv_textarea_class))lv_textarea_delete_char(focused); }
 void InputManager::keyboardKey(lv_event_t *event) {
     lv_indev_t *keyboard = lv_get_keyboard_indev();
     if (!shell_ || !keyboard || lv_indev_get_state(keyboard) != LV_INDEV_STATE_PRESSED) return;

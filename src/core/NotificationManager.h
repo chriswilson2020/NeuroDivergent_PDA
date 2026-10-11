@@ -11,6 +11,7 @@ public:
               bool wakeDisplay = true);
     void dismiss();
     void ensureFocus();
+    void setLocked(bool locked);
     bool active() const { return active_; }
     bool canAccept() const { return !active_ || queueCount_<kQueueCapacity; }
     const char *actionTitle() const { return actionTitle_; }
@@ -39,4 +40,5 @@ private:
     NotificationAction action_ = nullptr;
     void *actionContext_ = nullptr;
     bool active_ = false;
+    bool locked_ = false;
 };

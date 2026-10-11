@@ -49,6 +49,7 @@ void UsbDiskService::createOverlay() {
 }
 
 bool UsbDiskService::begin(FinishedCallback callback, void *context) {
+    if(accessGuard_&&!accessGuard_(accessContext_)){lastError_="Unlock the pager first.";return false;}
     if (active_) return true;
     if (callback) setFinishedCallback(callback, context);
     if (!storage_.mounted()) { lastError_ = "Insert and mount a microSD card first."; return false; }
