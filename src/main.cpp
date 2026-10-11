@@ -23,6 +23,7 @@
 #include "core/MessagingService.h"
 #include "core/GnssTimeService.h"
 #include "core/CompanionTimeRequest.h"
+#include "core/DesktopBridge.h"
 #include <esp_system.h>
 #include "data/CalendarStore.h"
 #include "data/AssignmentStore.h"
@@ -109,6 +110,82 @@ static bool consumeBackupRequest() {
     return SD.remove(kBackupRequestPath);
 }
 
+static void writeJsonString(File &file,const char *value) {
+    file.print('"');
+    for(const uint8_t *p=reinterpret_cast<const uint8_t*>(value);*p;++p) {
+        if(*p=='"'||*p=='\\'){file.print('\\');file.write(*p);}
+        else if(*p<32)file.printf("\\u%04x",*p);
+        else file.write(*p);
+    }
+    file.print('"');
+}
+static void exportDesktopManifest() {
+    File file=SD.open("/PocketPDA/commands/desktop.json",FILE_WRITE);
+    if(!file)return;
+    const auto &config=messagingSettings.value();
+    file.print("{\"version\":1,\"deviceName\":");writeJsonString(file,config.deviceName);
+    file.printf(",\"deviceID\":\"%012llx\",\"firmware\":\"PocketPDA %s %s\"",static_cast<unsigned long long>(ESP.getEfuseMac()),__DATE__,__TIME__);
+    time_t rtcEpoch=0;
+    if(hardware.rtc.utcNow(rtcEpoch))file.printf(",\"rtcEpoch\":%lld",static_cast<long long>(rtcEpoch));
+    if(hardware.battery.valid())file.printf(",\"batteryPercent\":%u,\"charging\":%s,\"batteryMv\":%u",hardware.battery.percent(),hardware.battery.charging()?"true":"false",hardware.battery.voltageMv());
+    file.print(",\"timezone\":");writeJsonString(file,settingsStore.timeSync().timezone==0?"Europe/Amsterdam":"UTC");
+    file.printf(",\"radioEnabled\":%s,\"contacts\":[",config.enabled?"true":"false");
+    bool first=true;
+    for(const auto &contact:config.contacts)if(contact.deviceId) {
+        if(!first)file.print(',');first=false;
+        file.printf("{\"id\":\"%016llx\",\"name\":",static_cast<unsigned long long>(contact.deviceId));
+        writeJsonString(file,contact.name);file.print('}');
+    }
+    file.print("]}\n");file.close();
+}
+static size_t consumeDesktopMessages(size_t &failed) {
+    failed=0;char names[16][37]{};size_t count=0,queued=0;
+    {
+        SPIBusManager::Guard guard(hardware.spi);if(!guard)return 0;
+        File folder=SD.open("/PocketPDA/messages/desktop-outbox",FILE_READ);
+        if(!folder||!folder.isDirectory())return 0;
+        while(count<16){File file=folder.openNextFile();if(!file)break;
+            const char *name=strrchr(file.path(),'/');name=name?name+1:file.name();
+            if(!file.isDirectory()&&DesktopBridge::draftName(name))strlcpy(names[count++],name,sizeof(names[0]));
+            file.close();}
+        folder.close();
+    }
+    for(size_t i=0;i<count;++i) {
+        char path[100],idPath[104];snprintf(path,sizeof(path),"/PocketPDA/messages/desktop-outbox/%s",names[i]);snprintf(idPath,sizeof(idPath),"%s.id",path);
+        DesktopBridge::MessageDraft draft;uint32_t messageId=0;bool valid=false;
+        {
+            SPIBusManager::Guard guard(hardware.spi);if(!guard){++failed;continue;}
+            File file=SD.open(path,FILE_READ);uint8_t data[189];const size_t size=file?file.size():0;
+            valid=file&&size<=sizeof(data)&&file.read(data,size)==size&&DesktopBridge::parseMessage(data,size,draft);file.close();
+            valid=valid&&messagingSettings.findContact(draft.contact)&&messagingSettings.value().enabled;
+            if(valid&&SD.exists(idPath)) {
+                File id=SD.open(idPath,FILE_READ);valid=id&&id.size()==4&&id.read(reinterpret_cast<uint8_t*>(&messageId),4)==4&&messageId!=0;id.close();
+            } else if(valid) {
+                messageId=messagingSettings.nextMessageId();
+                File id=SD.open(idPath,FILE_WRITE);valid=id&&messageId&&id.write(reinterpret_cast<const uint8_t*>(&messageId),4)==4;id.flush();id.close();
+                File check=SD.open(idPath,FILE_READ);uint32_t stored=0;
+                valid=valid&&check&&check.size()==4&&check.read(reinterpret_cast<uint8_t*>(&stored),4)==4&&stored==messageId;check.close();
+            }
+        }
+        // The allocated radio ID is durable before append. If power fails after
+        // append but before deleting the request, replay finds the existing
+        // outgoing record instead of creating a second message.
+        bool ok=valid&&messageStore.findOutgoing(draft.contact,messageId);
+        uint32_t local=0;
+        if(valid&&!ok)ok=messageStore.addOutgoing(draft.contact,messageId,draft.timestamp,draft.text,local);
+        {
+            SPIBusManager::Guard guard(hardware.spi);
+            if(guard){
+                SD.mkdir("/PocketPDA/commands/message-results");char result[112];snprintf(result,sizeof(result),"/PocketPDA/commands/message-results/%s.txt",names[i]);
+                File file=SD.open(result,FILE_WRITE);if(file){file.print(ok?"QUEUED\n":"FAILED: check paired contact, radio setting, request integrity and SD space.\n");file.close();}
+                if(ok&&SD.remove(path))SD.remove(idPath);
+            }
+        }
+        if(ok)++queued;else ++failed;
+    }
+    return queued;
+}
+
 static void dataRestored(void *) {
     gnss.cancel();
     settingsStore.load();
@@ -145,6 +222,8 @@ static void usbDiskFinished(void *, bool storageReady) {
     routineStore.load();
     timerStore.load();
     messageStore.load();
+    size_t desktopMessageFailures=0;
+    const size_t desktopMessages=consumeDesktopMessages(desktopMessageFailures);
     shell.setMessageUnread(messageStore.unreadCount());
     timerService.reload();
     const size_t eventImports = calendarStore.lastImportCount();
@@ -155,6 +234,9 @@ static void usbDiskFinished(void *, bool storageReady) {
         else shell.notifications().show("BACKUP FAILED", backup.lastError());
     } else if (timeResult) {
         shell.notifications().show("MAC TIME SYNC", timeResult);
+    } else if (desktopMessages || desktopMessageFailures) {
+        char message[112];snprintf(message,sizeof(message),"%u queued for radio, %u pending/error. Delivery is shown in Messages.",static_cast<unsigned>(desktopMessages),static_cast<unsigned>(desktopMessageFailures));
+        shell.notifications().show("DESKTOP MESSAGES",message);
     } else if (eventImports || taskImports || routineImports) {
         char message[96]; snprintf(message, sizeof(message), "%u events, %u tasks and %u routines imported.",
                                    static_cast<unsigned>(eventImports), static_cast<unsigned>(taskImports), static_cast<unsigned>(routineImports));
@@ -171,6 +253,7 @@ static void usbDiskStarted(void *) {
     SPIBusManager::Guard guard(hardware.spi);
     if (!guard) return;
     SD.mkdir("/PocketPDA/commands");
+    exportDesktopManifest();
     SD.remove("/PocketPDA/commands/backup-settings.session");
     char session[48];
     snprintf(session, sizeof(session), "%012llx-%08lx%08lx",

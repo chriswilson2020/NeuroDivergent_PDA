@@ -11,6 +11,9 @@ public:
     void update(); void suspend(); void resume();
     bool send(uint64_t contactId,const char*text);
     bool retry(uint32_t localId);
+    bool forgetContact(uint64_t contactId);
+    bool pairingSucceeded()const{return pairingSucceeded_;}
+    uint32_t pairingSecondsRemaining()const;
     bool startPairing(const char*code); void stopPairing(); bool pairing()const{return pairing_;}
     const char*status()const{return status_;} RadioRuntimeStats stats()const;
     void configurationChanged();
@@ -27,7 +30,7 @@ private:
     static volatile bool irq_; static MessagingService*active_;
     HardwareManager*hardware_=nullptr;MessageStore*messages_=nullptr;MessagingSettingsStore*settings_=nullptr;RTCService*rtc_=nullptr;Shell*shell_=nullptr;
     State state_=State::Sleeping;uint32_t stateSince_=0,nextTxMs_=0,ackDeadline_=0,lastPairHello_=0,pairUntil_=0,currentLocalId_=0;uint8_t currentAttempts_=0;
-    bool suspended_=false,pairing_=false,sendingAck_=false;char pairCode_[17]{};char status_[64]="Messaging disabled";
+    bool suspended_=false,pairing_=false,pairingSucceeded_=false,sendingAck_=false;char pairCode_[17]{};char status_[64]="Messaging disabled";
     uint64_t ackContact_=0;uint32_t ackMessageId_=0;bool ackPending_=false;
     uint64_t notificationContact_=0;OpenConversationCallback openCallback_=nullptr;void*openContext_=nullptr;
     uint8_t tx_[255]{},rx_[255]{};size_t txLength_=0;RadioRuntimeStats stats_{};

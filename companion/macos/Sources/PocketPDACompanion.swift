@@ -20,6 +20,9 @@ final class CompanionModel: ObservableObject {
     @Published var weeks = 12
     @Published var preserveBaseSchedule = true
     @Published var busy = false
+    @Published var calendarPreview:[CompanionEvent]=[]
+    @Published var showingCalendarPreview=false
+    private let demo:Bool
 
     private let eventStore = EKEventStore()
     private var scanTimer: Timer?
@@ -29,7 +32,11 @@ final class CompanionModel: ObservableObject {
     private let pendingBackupTicketKey = "PendingBackupTicket"
     private let pendingTimeKey = "PendingTimeSession"
 
-    init() {
+    init(demoMode:Bool?=nil) {
+        demo=demoMode ?? CommandLine.arguments.contains("--demo")
+        if demo {
+            deviceRoot=try? PagerDemo.create();status="Demo · sample data";detail="No pager is being read or modified.";return
+        }
         if let path = UserDefaults.standard.string(forKey: pendingBackupKey) {
             pendingBackupDestination = URL(fileURLWithPath: path)
         }
@@ -83,6 +90,7 @@ final class CompanionModel: ObservableObject {
     }
 
     func syncTime() {
+        guard !demo else {showError("Time sync is unavailable in demo mode.");return}
         guard let pocketRoot, let root = deviceRoot else { return }
         do {
             let commands = pocketRoot.appendingPathComponent("commands", isDirectory: true)
@@ -146,7 +154,7 @@ final class CompanionModel: ObservableObject {
                 guard granted else { throw CompanionError.message("Calendar access was not granted. Enable it in System Settings > Privacy & Security > Calendars.") }
                 calendars = eventStore.calendars(for: .event)
                     .sorted { ($0.source.title, $0.title) < ($1.source.title, $1.title) }
-                    .map { CalendarChoice(id: $0.calendarIdentifier, calendar: $0, selected: false) }
+                    .map { CalendarChoice(id: $0.calendarIdentifier, calendar: $0, selected:(UserDefaults.standard.stringArray(forKey:"SelectedCalendars") ?? []).contains($0.calendarIdentifier)) }
                 detail = calendars.isEmpty ? "No macOS calendars were found." : "Choose the Outlook or other calendars to synchronize."
             } catch { showError(error.localizedDescription) }
             busy = false
@@ -156,41 +164,25 @@ final class CompanionModel: ObservableObject {
     func toggleCalendar(_ id: String) {
         guard let index = calendars.firstIndex(where: { $0.id == id }) else { return }
         calendars[index].selected.toggle()
+        UserDefaults.standard.set(calendars.filter(\.selected).map(\.id),forKey:"SelectedCalendars")
     }
 
     func syncSelectedCalendars() {
-        guard let pocketRoot else { return }
+        guard pocketRoot != nil else { return }
         let selected = calendars.filter(\.selected).map(\.calendar)
         guard !selected.isEmpty else { showError("Select at least one calendar first."); return }
         busy = true
         do {
-            let fm = FileManager.default
-            let calendarDir = pocketRoot.appendingPathComponent("calendar", isDirectory: true)
-            try fm.createDirectory(at: calendarDir, withIntermediateDirectories: true)
+            _ = try PagerWriteLease(root:pocketRoot!)
             let start = Calendar.current.startOfDay(for: Date())
             let end = Calendar.current.date(byAdding: .day, value: weeks * 7, to: start)!
             let events = eventStore.events(matching: eventStore.predicateForEvents(withStart: start, end: end, calendars: selected))
                 .sorted { $0.startDate < $1.startDate }
-            var rows = ["date,start,end,title,location,reminder_minutes,repeat"]
-            let base = calendarDir.appendingPathComponent("companion-base.csv")
-            if preserveBaseSchedule {
-                if !fm.fileExists(atPath: base.path) {
-                    let previous = calendarDir.appendingPathComponent("last-import.csv")
-                    if fm.fileExists(atPath: previous.path) { try fm.copyItem(at: previous, to: base) }
-                }
-                if let existing = try? String(contentsOf: base, encoding: .utf8) {
-                    rows.append(contentsOf: existing.split(whereSeparator: \Character.isNewline).dropFirst().map(String.init))
-                }
+            calendarPreview=events.filter {!$0.isAllDay}.map {event in
+                CompanionEvent(id:event.calendar.calendarIdentifier+"|"+(event.eventIdentifier ?? UUID().uuidString)+(event.occurrenceDate.map {"|\($0.timeIntervalSince1970)"} ?? ""),title:event.title ?? "Untitled",location:event.location ?? "",start:event.startDate,end:event.endDate,reminder:event.alarms?.compactMap {$0.relativeOffset < 0 ? Int(abs($0.relativeOffset)/60) : nil}.min() ?? 5)
             }
-            let day = DateFormatter(); day.locale = Locale(identifier: "en_US_POSIX"); day.dateFormat = "yyyy-MM-dd"
-            let clock = DateFormatter(); clock.locale = Locale(identifier: "en_US_POSIX"); clock.dateFormat = "HH:mm"
-            for event in events where !event.isAllDay {
-                let reminder = event.alarms?.compactMap { $0.relativeOffset < 0 ? Int(abs($0.relativeOffset) / 60) : nil }.min() ?? 5
-                rows.append([day.string(from: event.startDate), clock.string(from: event.startDate), clock.string(from: event.endDate), csv(event.title ?? "Untitled", maxBytes: 39), csv(event.location ?? "", maxBytes: 19), String(reminder), "once"].joined(separator: ","))
-            }
-            let destination = calendarDir.appendingPathComponent("import.csv")
-            try (rows.joined(separator: "\n") + "\n").data(using: .utf8)!.write(to: destination, options: .atomic)
-            detail = "Prepared \(events.filter { !$0.isAllDay }.count) calendar events for the next \(weeks) weeks. Eject to import them."
+            showingCalendarPreview=true
+            detail="Preview prepared. \(events.filter(\.isAllDay).count) all-day events omitted (pager supports timed events). Nothing saved yet."
         } catch { showError(error.localizedDescription) }
         busy = false
     }
@@ -296,20 +288,32 @@ final class CompanionModel: ObservableObject {
     }
 
     func stageRestore() {
-        guard let pocketRoot else { return }
+        guard let originalRoot=pocketRoot,let lease=try? PagerWriteLease(root:originalRoot) else { return }
         let panel = NSOpenPanel(); panel.title = "Choose a PocketPDA backup"; panel.allowedContentTypes = [.data]
         guard panel.runModal() == .OK, let source = panel.url else { return }
         do {
-            let data = try Data(contentsOf: source)
-            try validateBackup(data)
-            let backupDir = pocketRoot.appendingPathComponent("backups", isDirectory: true)
-            try FileManager.default.createDirectory(at: backupDir, withIntermediateDirectories: true)
-            try data.write(to: backupDir.appendingPathComponent("PocketPDA-Backup.ppb"), options: .atomic)
-            detail = "Restore staged and verified. Eject, then choose RESTORE on the Pager and confirm there."
+            try lease.check()
+            guard pocketRoot == originalRoot else {throw CompanionError.message("The pager changed while choosing a restore. Reopen Restore.")}
+            try stageRestore(from:source)
         } catch { showError(error.localizedDescription) }
     }
 
+    func stageRestore(from source:URL) throws {
+        guard let pocketRoot else {throw CompanionError.message("Connect the pager first.")}
+        let lease=try PagerWriteLease(root:pocketRoot)
+        _ = try CompanionBackup.validate(source)
+        try CompanionVault.beforeChanges(lease)
+        let data=try Data(contentsOf:source)
+        let backupDir=pocketRoot.appendingPathComponent("backups",isDirectory:true)
+        try FileManager.default.createDirectory(at:backupDir,withIntermediateDirectories:true)
+        try lease.check()
+        try data.write(to:backupDir.appendingPathComponent("PocketPDA-Backup.ppb"),options:.atomic)
+        _ = try CompanionBackup.validate(backupDir.appendingPathComponent("PocketPDA-Backup.ppb"))
+        detail="Restore staged and verified. Eject, then choose RESTORE on the Pager and confirm there."
+    }
+
     func eject() {
+        guard !demo else {showError("This is sample data, not a mounted pager.");return}
         guard let root = deviceRoot else { return }
         do {
             try NSWorkspace.shared.unmountAndEjectDevice(at: root)
@@ -376,27 +380,30 @@ private extension Data {
     func readUInt32(at offset: Int) -> UInt32 { UInt32(self[offset]) | UInt32(self[offset + 1]) << 8 | UInt32(self[offset + 2]) << 16 | UInt32(self[offset + 3]) << 24 }
 }
 
-struct ContentView: View {
-    @StateObject private var model = CompanionModel()
+struct SyncToolsView: View {
+    @ObservedObject var model: CompanionModel
 
     var body: some View {
         VStack(spacing: 16) {
-            HStack(spacing: 14) {
+            VStack(alignment:.leading,spacing: 14) {
+                HStack(spacing:12) {
                 Circle().fill(model.connected ? Color.green : Color.orange).frame(width: 14, height: 14)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(model.status).font(.title2.bold())
                     Text(model.detail).font(.callout).foregroundStyle(.secondary).lineLimit(2)
                 }
-                Spacer()
+                }
+                DesktopFlow {
                 Button("Choose Device…") { model.chooseDevice() }.disabled(model.busy)
                 Button("Eject") { model.eject() }.disabled(!model.connected || model.busy)
+                }
             }
             .padding(16).background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 14))
 
-            HStack(alignment: .top, spacing: 16) {
+            LazyVGrid(columns:[GridItem(.adaptive(minimum:300),spacing:16,alignment:.top)],alignment:.leading,spacing:16) {
                 GroupBox("Calendar sync") {
                     VStack(alignment: .leading, spacing: 10) {
-                        HStack {
+                        DesktopFlow {
                             Button(model.calendars.isEmpty ? "Load macOS Calendars" : "Refresh Calendars") { model.requestCalendars() }
                             Picker("Range", selection: $model.weeks) { Text("4 weeks").tag(4); Text("12 weeks").tag(12); Text("26 weeks").tag(26) }.frame(width: 150)
                         }
@@ -408,11 +415,10 @@ struct ContentView: View {
                                     }
                                 }
                             }
-                        }.frame(minHeight: 150)
-                        Toggle("Preserve the previous imported schedule", isOn: $model.preserveBaseSchedule)
-                        HStack {
-                            Button("Sync Selected Calendars") { model.syncSelectedCalendars() }.buttonStyle(.borderedProminent).disabled(!model.connected || model.calendars.allSatisfy { !$0.selected })
-                            Button("Import CSV…") { model.importCSV() }.disabled(!model.connected)
+                        }.frame(height:180)
+                        Text("Existing pager events are always preserved. Exact duplicates are skipped.").font(.caption).foregroundStyle(.secondary)
+                        DesktopFlow {
+                            Button("Preview Selected Calendars…") { model.syncSelectedCalendars() }.buttonStyle(.borderedProminent).disabled(!model.connected || model.calendars.allSatisfy { !$0.selected })
                         }
                         Text("Outlook calendars appear here when the Outlook account is enabled in macOS Calendar. Sync is one-way to PocketPDA.").font(.caption).foregroundStyle(.secondary)
                     }.padding(8)
@@ -442,20 +448,21 @@ struct ContentView: View {
                             Text("Edit events, tasks, and routines without uploading personal data.").font(.caption).foregroundStyle(.secondary)
                         }.padding(8)
                     }
-                    Spacer()
-                }.frame(width: 260)
+                }.frame(maxWidth:.infinity,alignment:.topLeading)
             }.disabled(model.busy)
             if model.busy { ProgressView().controlSize(.small) }
         }
         .padding(20)
-        .frame(minWidth: 760, minHeight: 650)
+        .frame(maxWidth:.infinity,alignment:.topLeading)
     }
 }
 
+#if !POCKETPDA_LAYOUT_QA
 @main
 struct PocketPDACompanionApp: App {
     var body: some Scene {
         WindowGroup("PocketPDA Companion") { ContentView() }
-            .defaultSize(width: 820, height: 700)
+            .defaultSize(width: 1180, height: 780)
     }
 }
+#endif

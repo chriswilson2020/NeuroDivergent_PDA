@@ -11,6 +11,7 @@ class FlashUpdateTests(unittest.TestCase):
     def image(self):
         data = bytearray(64)
         data[0] = 0xE9
+        data[12] = 9
         data[32:36] = bytes.fromhex("3254cdab")
         return data
 
@@ -32,3 +33,9 @@ class FlashUpdateTests(unittest.TestCase):
         for data in (b"", self.image() + bytes(updater.APP_SIZE)):
             with self.assertRaises(ValueError):
                 updater.validate_image(data, "firmware.bin")
+
+    def test_reject_wrong_chip(self):
+        data = self.image()
+        data[12] = 0
+        with self.assertRaises(ValueError):
+            updater.validate_image(data, "firmware.bin")

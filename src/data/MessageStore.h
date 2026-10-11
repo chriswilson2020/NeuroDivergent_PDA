@@ -27,6 +27,7 @@ public:
     const MessageRecord &at(size_t index) const { return records_[index]; }
     MessageRecord *findLocal(uint32_t localId);
     MessageRecord *findRemote(uint64_t contactId, uint32_t messageId);
+    MessageRecord *findOutgoing(uint64_t contactId, uint32_t messageId);
     MessageRecord *nextPending();
     bool addOutgoing(uint64_t contactId, uint32_t messageId, uint32_t timestamp, const char *text, uint32_t &localId);
     bool addIncoming(uint64_t contactId, uint32_t messageId, uint32_t timestamp, const char *text, bool &duplicate);

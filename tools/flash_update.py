@@ -15,10 +15,12 @@ def validate_image(data: bytes, name: str) -> None:
         raise ValueError("Not a valid-sized ESP application image.")
     if data[32:36] != bytes.fromhex("3254cdab"):
         raise ValueError("ESP application descriptor missing; refusing a bootloader/merged image.")
+    if int.from_bytes(data[12:14], "little") != 9:
+        raise ValueError("This application is not built for ESP32-S3.")
 
 
 def update_command(port: str, image: Path) -> list[str]:
-    return [sys.executable, "-m", "esptool", "--port", port, "--after",
+    return [sys.executable, "-m", "esptool", "--chip", "esp32s3", "--port", port, "--after",
             "watchdog-reset", "write-flash", hex(APP_OFFSET), str(image)]
 
 
