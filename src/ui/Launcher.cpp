@@ -4,10 +4,12 @@
 
 struct LauncherItem { const char *label; const char *id; };
 static constexpr LauncherItem kItems[] = {
-    {"TODAY", "today"}, {"TRANSITION", "transition"}, {"QUICK CAPTURE", "capture"}, {"CALENDAR", "calendar"},
-    {"TASKS", "tasks"}, {"ASSIGNMENTS", "assignments"}, {"PACKING", "packing"}, {"ROUTINES", "routines"},
-    {"NOTES", "notes"}, {"TIMERS", "clock"}, {"HABITS + PET", "habits"}, {"MESSAGES", "messages"},
-    {"CONTACTS", "contacts"}, {"FILES", "files"}, {"SETTINGS", "settings"}
+    // Read left-to-right: everyday planning, preparation/routines,
+    // reference/communication, then utilities. Keep Settings last.
+    {"TODAY", "today"}, {"CALENDAR", "calendar"}, {"TASKS", "tasks"}, {"QUICK CAPTURE", "capture"},
+    {"TRANSITION", "transition"}, {"ROUTINES", "routines"}, {"PACKING", "packing"}, {"HABITS + PET", "habits"},
+    {"ASSIGNMENTS", "assignments"}, {"NOTES", "notes"}, {"CONTACTS", "contacts"}, {"MESSAGES", "messages"},
+    {"TIMERS", "clock"}, {"FILES", "files"}, {"SETTINGS", "settings"}
 };
 
 void Launcher::create(lv_obj_t *parent, Shell &shell) {
