@@ -32,6 +32,14 @@ struct BackupTests {
         assert(entryCount == 3)
         let archive = try Data(contentsOf: output)
         assert(archive.suffix(body.count) == body)
+        let contacts = pocket.appendingPathComponent("contacts")
+        try fm.createDirectory(at: contacts, withIntermediateDirectories: true)
+        try Data("Contact test fixture".utf8).write(to: contacts.appendingPathComponent("contacts.dat"))
+        let contactsOutput = root.appendingPathComponent("contacts-backup.ppb")
+        try CompanionBackup.create(pocketRoot: pocket, destination: contactsOutput)
+        let contactsCount = try CompanionBackup.validate(contactsOutput)
+        assert(contactsCount == 4 && CompanionBackup.allowed("contacts/contacts.dat"))
+        try fm.removeItem(at: contacts)
         // Existing destination can be atomically replaced with another verified archive.
         try CompanionBackup.create(pocketRoot: pocket, destination: output)
         func unchanged() throws { let saved = try Data(contentsOf: output); assert(saved == archive) }

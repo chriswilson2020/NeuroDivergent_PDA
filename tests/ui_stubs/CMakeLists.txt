@@ -16,6 +16,11 @@ add_executable(test_focus_recovery "${ROOT}/tests/test_focus_recovery.cpp" "${RO
 target_include_directories(test_focus_recovery PRIVATE "${CMAKE_CURRENT_LIST_DIR}" "${ROOT}/src")
 target_link_libraries(test_focus_recovery PRIVATE lvgl)
 enable_testing()
+add_executable(test_contacts "${ROOT}/tests/test_contacts.cpp" "${ROOT}/src/data/ContactStore.cpp"
+    "${ROOT}/src/apps/contacts/ContactsApp.cpp" "${ROOT}/src/ui/Theme.cpp")
+target_include_directories(test_contacts PRIVATE "${ROOT}/tests/contact_stubs" "${ROOT}/src")
+target_link_libraries(test_contacts PRIVATE lvgl)
+add_test(NAME contacts COMMAND test_contacts)
 add_test(NAME input_navigation COMMAND test_input_navigation)
 add_test(NAME focus_recovery COMMAND test_focus_recovery)
 add_executable(test_locked_alert_services "${ROOT}/tests/test_locked_alert_services.cpp"

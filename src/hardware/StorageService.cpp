@@ -11,6 +11,7 @@ bool StorageService::mount(SPIBusManager &bus) {
     if (!mounted_) return false;
     const char *paths[] = {"/PocketPDA", "/PocketPDA/calendar", "/PocketPDA/tasks", "/PocketPDA/assignments", "/PocketPDA/packing", "/PocketPDA/notes", "/PocketPDA/habits", "/PocketPDA/routines", "/PocketPDA/timers", "/PocketPDA/messages", "/PocketPDA/files", "/PocketPDA/backups", "/PocketPDA/commands"};
     for (const char *path : paths) if (!SD.exists(path)) SD.mkdir(path);
+    if(!SD.exists("/PocketPDA/contacts"))SD.mkdir("/PocketPDA/contacts");
     return true;
 }
 void StorageService::unmount() { if (mounted_) instance.uninstallSD(); mounted_ = false; hostOwned_ = false; }

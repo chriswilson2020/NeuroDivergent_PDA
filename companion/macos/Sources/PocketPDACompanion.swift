@@ -349,7 +349,7 @@ final class CompanionModel: ObservableObject {
             let pathBytes = data[offset..<(offset + 88)]
             guard let zero = pathBytes.firstIndex(of: 0) else { throw CompanionError.message("A backup path is invalid.") }
             let path = String(decoding: pathBytes[..<zero], as: UTF8.self)
-            let allowedPrefixes = ["calendar/", "tasks/", "assignments/", "packing/", "habits/", "routines/", "timers/", "notes/", "messages/", "files/"]
+            let allowedPrefixes = ["calendar/", "tasks/", "assignments/", "packing/", "habits/", "routines/", "timers/", "notes/", "messages/", "files/", "contacts/"]
             guard path == "@settings" || path == "@timesync" || (!path.hasPrefix("/") && !path.contains("..") && allowedPrefixes.contains(where: path.hasPrefix)) else {
                 throw CompanionError.message("The backup contains an unsafe path.")
             }

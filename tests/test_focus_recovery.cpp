@@ -51,7 +51,7 @@ int main() {
     TestApp apps[]={
         {"today",true},{"transition",true},{"capture"},{"calendar"},
         {"tasks"},{"assignments"},{"packing"},{"routines"},{"notes"},
-        {"clock"},{"habits"},{"messages"},{"files"},{"settings"}
+        {"clock"},{"habits"},{"messages"},{"files"},{"settings"},{"contacts"}
     };
     AppManager manager;manager.begin(screen);
     for(auto &app:apps) manager.registerApp(&app);

@@ -7,7 +7,7 @@ enum CompanionBackup {
         case invalid(String)
         var errorDescription: String? { if case .invalid(let s) = self { return s }; return nil }
     }
-    static let directories = ["calendar", "tasks", "assignments", "packing", "habits", "routines", "timers", "notes", "messages", "files"]
+    static let directories = ["calendar", "tasks", "assignments", "packing", "habits", "routines", "timers", "notes", "messages", "files", "contacts"]
     static func u16(_ data: Data, _ at: Int) -> Int { Int(data[at]) | Int(data[at + 1]) << 8 }
     static func u32(_ data: Data, _ at: Int) -> UInt32 {
         UInt32(data[at]) | UInt32(data[at+1]) << 8 | UInt32(data[at+2]) << 16 | UInt32(data[at+3]) << 24

@@ -7,6 +7,7 @@
 #include "apps/files/FilesApp.h"
 #include "apps/habits/HabitsApp.h"
 #include "apps/notes/NotesApp.h"
+#include "apps/contacts/ContactsApp.h"
 #include "apps/messages/MessagesApp.h"
 #include "apps/packing/PackingApp.h"
 #include "apps/routines/RoutinesApp.h"
@@ -55,6 +56,7 @@ static AssignmentStore assignmentStore(hardware.storage, hardware.spi);
 static HabitStore habitStore(hardware.storage, hardware.spi);
 static TaskStore taskStore(hardware.storage, hardware.spi);
 static NoteStore noteStore(hardware.storage, hardware.spi);
+static ContactStore contactStore(hardware.storage, hardware.spi);
 static PackingStore packingStore(hardware.storage, hardware.spi);
 static RoutineStore routineStore(hardware.storage, hardware.spi);
 static TimerStore timerStore(hardware.storage, hardware.spi);
@@ -69,6 +71,7 @@ static TasksApp tasks(taskStore, hardware.rtc);
 static AssignmentsApp assignments(assignmentStore, hardware.rtc, hardware.haptic);
 static PackingApp packing(packingStore, calendarStore, hardware.rtc, hardware.haptic);
 static NotesApp notes(noteStore);
+static ContactsApp contacts(contactStore);
 static RoutinesApp routines(routineStore, hardware.haptic);
 static TimerService timerService;
 static ClockApp clockApp(hardware.rtc, timerStore, timerService);
@@ -198,6 +201,7 @@ static void dataRestored(void *) {
     habitStore.load();
     taskStore.load();
     noteStore.load();
+    contactStore.load();
     packingStore.load();
     routineStore.load();
     timerStore.load();
@@ -220,6 +224,7 @@ static void usbDiskFinished(void *, bool storageReady) {
     habitStore.load();
     taskStore.load();
     noteStore.load();
+    contactStore.load();
     packingStore.load();
     routineStore.load();
     timerStore.load();
@@ -294,12 +299,13 @@ void setup() {
         habitStore.load();
         taskStore.load();
         noteStore.load();
+        contactStore.load();
         packingStore.load();
         routineStore.load();
         timerStore.load();
         messageStore.load();
     }
-    shell.begin(hardware, today, transition, capture, calendar, tasks, assignments, packing, routines, notes, clockApp, habits, messages, files, settings);
+    shell.begin(hardware, today, transition, capture, calendar, tasks, assignments, packing, routines, notes, clockApp, habits, messages, files, settings, contacts);
     shell.beginLock(passcodes);
     shell.setMessageUnread(messageStore.unreadCount());
     messaging.begin(hardware, messageStore, messagingSettings, hardware.rtc, shell);

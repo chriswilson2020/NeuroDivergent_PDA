@@ -11,7 +11,7 @@ class PasscodeStore;
 class Shell {
 public:
     void begin(HardwareManager &hardware, App &todayApp, App &transitionApp, App &captureApp, App &calendarApp,
-               App &tasksApp, App &assignmentsApp, App &packingApp, App &routinesApp, App &notesApp, App &clockApp, App &habitsApp, App &messagesApp, App &filesApp, App &settingsApp);
+               App &tasksApp, App &assignmentsApp, App &packingApp, App &routinesApp, App &notesApp, App &clockApp, App &habitsApp, App &messagesApp, App &filesApp, App &settingsApp, App &contactsApp);
     void update();
     void ensureFocus();
     void beginLock(PasscodeStore &store);
