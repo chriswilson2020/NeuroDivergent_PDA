@@ -5,22 +5,23 @@
 #include "data/PasscodeStore.h"
 #include <esp_timer.h>
 #include <cstdio>
+#include <initializer_list>
 
 void LockScreen::begin(PasscodeStore &store,Changed changed,void *context,uint64_t now) {
     store_=&store;changed_=changed;context_=context;now_=now;
     root_=lv_obj_create(lv_layer_top());lv_obj_set_size(root_,480,222);lv_obj_set_pos(root_,0,0);
     lv_obj_set_style_bg_color(root_,Theme::color(0xE9E4D8),0);lv_obj_set_style_bg_opa(root_,LV_OPA_COVER,0);
     lv_obj_set_style_pad_all(root_,0,0);lv_obj_set_style_border_width(root_,0,0);lv_obj_set_style_radius(root_,0,0);lv_obj_set_scrollable(root_,false);
-    auto *title=lv_label_create(root_);lv_label_set_text(title,"POCKETPDA LOCKED");lv_obj_set_pos(title,18,12);
-    lv_obj_set_style_text_font(title,&lv_font_montserrat_20,0);
     entry_=lv_obj_create(root_);lv_obj_remove_style_all(entry_);lv_obj_set_size(entry_,480,222);lv_obj_set_scrollable(entry_,false);
+    auto *title=lv_label_create(entry_);lv_label_set_text(title,"POCKETPDA LOCKED");lv_obj_set_pos(title,18,12);
+    lv_obj_set_style_text_font(title,&lv_font_montserrat_20,0);
     pin_=FormWidgets::text(entry_,"6 letters / numbers",18,47,210,42);
     lv_textarea_set_password_mode(pin_,true);lv_textarea_set_password_show_time(pin_,0);
     lv_textarea_set_max_length(pin_,6);lv_textarea_set_accepted_chars(pin_,"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ");
     lv_obj_add_event_cb(pin_,submit,LV_EVENT_READY,this);
     auto *unlock=FormWidgets::button(entry_,"UNLOCK",18,98,210,36,true);lv_obj_add_event_cb(unlock,submit,LV_EVENT_CLICKED,this);
     status_=lv_label_create(entry_);lv_obj_set_pos(status_,18,145);lv_obj_set_width(status_,210);lv_label_set_long_mode(status_,LV_LABEL_LONG_WRAP);
-    alert_=lv_label_create(root_);lv_obj_set_pos(alert_,18,204);lv_obj_set_style_text_font(alert_,&lv_font_montserrat_12,0);
+    alert_=lv_label_create(root_);lv_obj_set_pos(alert_,18,207);lv_obj_set_width(alert_,444);lv_obj_set_style_text_align(alert_,LV_TEXT_ALIGN_CENTER,0);lv_obj_set_style_text_font(alert_,&lv_font_montserrat_12,0);
     lv_label_set_text(alert_,"Alert waiting - unlock to view");lv_obj_set_hidden(alert_,true);
     auto *hint=lv_label_create(entry_);lv_label_set_text(hint,"Type letters. Case matters.\nNumbers: ALT or keypad.");lv_obj_set_pos(hint,18,173);lv_obj_set_style_text_font(hint,&lv_font_montserrat_12,0);
     group_=lv_group_create();lv_group_add_obj(group_,pin_);lv_group_add_obj(group_,unlock);
@@ -31,10 +32,20 @@ void LockScreen::begin(PasscodeStore &store,Changed changed,void *context,uint64
         lv_obj_add_event_cb(b,digit,LV_EVENT_CLICKED,this);lv_group_add_obj(group_,b);
     }
     auto *backButton=FormWidgets::button(entry_,"BACK",365,4,100,30);lv_obj_add_event_cb(backButton,backClicked,LV_EVENT_CLICKED,this);lv_group_add_obj(group_,backButton);
-    ownerView_=lv_obj_create(root_);lv_obj_remove_style_all(ownerView_);lv_obj_set_pos(ownerView_,18,43);lv_obj_set_size(ownerView_,444,158);lv_obj_set_scrollable(ownerView_,false);
-    ownerText_=lv_label_create(ownerView_);lv_obj_set_size(ownerText_,444,112);lv_label_set_long_mode(ownerText_,LV_LABEL_LONG_WRAP);
-    lv_obj_set_style_text_font(ownerText_,&lv_font_montserrat_12,0);
-    continue_=FormWidgets::button(ownerView_,"UNLOCK PAGER",0,119,210,34,true);lv_obj_add_event_cb(continue_,ownerClicked,LV_EVENT_CLICKED,this);
+    ownerView_=lv_obj_create(root_);lv_obj_remove_style_all(ownerView_);lv_obj_set_pos(ownerView_,18,0);lv_obj_set_size(ownerView_,444,205);lv_obj_set_scrollable(ownerView_,false);
+    auto *found=lv_label_create(ownerView_);lv_label_set_text(found,"If found, please contact");lv_obj_set_pos(found,0,8);lv_obj_set_width(found,444);
+    lv_obj_set_style_text_font(found,&lv_font_montserrat_14,0);lv_obj_set_style_text_align(found,LV_TEXT_ALIGN_CENTER,0);
+    auto *details=lv_obj_create(ownerView_);lv_obj_remove_style_all(details);lv_obj_set_pos(details,0,32);lv_obj_set_size(details,444,132);lv_obj_set_scrollable(details,false);
+    lv_obj_set_flex_flow(details,LV_FLEX_FLOW_COLUMN);lv_obj_set_flex_align(details,LV_FLEX_ALIGN_CENTER,LV_FLEX_ALIGN_CENTER,LV_FLEX_ALIGN_CENTER);lv_obj_set_style_pad_row(details,6,0);
+    ownerName_=lv_label_create(details);ownerPhone_=lv_label_create(details);ownerEmail_=lv_label_create(details);
+    for(auto *label:{ownerName_,ownerPhone_,ownerEmail_}) {
+        lv_obj_set_width(label,444);lv_obj_set_style_text_font(label,&lv_font_montserrat_20,0);
+        lv_obj_set_style_text_align(label,LV_TEXT_ALIGN_CENTER,0);
+    }
+    lv_label_set_long_mode(ownerName_,LV_LABEL_LONG_SCROLL_CIRCULAR);lv_obj_set_height(ownerName_,25);
+    lv_label_set_long_mode(ownerPhone_,LV_LABEL_LONG_SCROLL_CIRCULAR);lv_obj_set_height(ownerPhone_,25);
+    lv_label_set_long_mode(ownerEmail_,LV_LABEL_LONG_WRAP);
+    continue_=FormWidgets::button(ownerView_,"UNLOCK PAGER",112,172,220,32,true);lv_obj_add_event_cb(continue_,ownerClicked,LV_EVENT_CLICKED,this);
     ownerGroup_=lv_group_create();lv_group_add_obj(ownerGroup_,continue_);
     lv_obj_set_hidden(root_,true);preferencesChanged(now);
     if(store.enabled())lock();
@@ -50,10 +61,17 @@ void LockScreen::lock() {
 }
 void LockScreen::showOwner() {
     entering_=false;lv_textarea_set_text(pin_,"");
-    const auto &owner=store_->owner();char text[256];
-    snprintf(text,sizeof(text),"If found, please contact:\n%s\n%s\n%s",*owner.name?owner.name:"Owner details not set",owner.phone,owner.email);
-    lv_label_set_text(ownerText_,text);
+    const auto &owner=store_->owner();
+    const bool empty=!*owner.name&&!*owner.phone&&!*owner.email;
+    lv_label_set_text(ownerName_,empty?"Owner details not set":owner.name);
+    lv_label_set_text(ownerPhone_,owner.phone);lv_label_set_text(ownerEmail_,owner.email);
+    lv_obj_set_hidden(ownerName_,!*owner.name&&!empty);lv_obj_set_hidden(ownerPhone_,!*owner.phone);lv_obj_set_hidden(ownerEmail_,!*owner.email);
     lv_obj_set_hidden(entry_,true);lv_obj_set_hidden(ownerView_,false);ensureFocus();
+    // Keep normal addresses large and wrapped; unusually long addresses scroll
+    // at the same readable font size instead of overflowing or shrinking.
+    lv_label_set_long_mode(ownerEmail_,LV_LABEL_LONG_WRAP);lv_obj_set_height(ownerEmail_,LV_SIZE_CONTENT);
+    lv_obj_update_layout(ownerView_);
+    if(lv_obj_get_height(ownerEmail_)>64){lv_label_set_long_mode(ownerEmail_,LV_LABEL_LONG_SCROLL_CIRCULAR);lv_obj_set_height(ownerEmail_,25);}
 }
 void LockScreen::showEntry() {
     entering_=true;entryActivity_=now_;lv_obj_set_hidden(ownerView_,true);lv_obj_set_hidden(entry_,false);

@@ -34,7 +34,7 @@ private:
     bool entering_=false;
     uint64_t entryActivity_=0;
     lv_obj_t *root_=nullptr,*pin_=nullptr,*status_=nullptr,*alert_=nullptr;
-    lv_obj_t *entry_=nullptr,*ownerView_=nullptr,*ownerText_=nullptr,*continue_=nullptr;
+    lv_obj_t *entry_=nullptr,*ownerView_=nullptr,*ownerName_=nullptr,*ownerPhone_=nullptr,*ownerEmail_=nullptr,*continue_=nullptr;
     lv_group_t *ownerGroup_=nullptr;
     lv_group_t *group_=nullptr;
 };

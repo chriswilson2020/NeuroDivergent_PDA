@@ -27,6 +27,26 @@ static lv_obj_t *findButton(lv_obj_t *root,const char *name) {
     }
     return nullptr;
 }
+static lv_obj_t *findLabel(lv_obj_t *root,const char *text) {
+    for(uint32_t i=0;i<lv_obj_get_child_count(root);++i) {
+        auto *child=lv_obj_get_child(root,i);
+        if(lv_obj_check_type(child,&lv_label_class)&&!strcmp(lv_label_get_text(child),text))return child;
+        if(auto *found=findLabel(child,text))return found;
+    }
+    return nullptr;
+}
+static void checkOwnerLayout() {
+    lv_obj_update_layout(lv_layer_top());
+    for(const char *text:{"If found, please contact","Gabriel","+31 123456789","parent@example.com"}) {
+        auto *label=findLabel(lv_layer_top(),text);assert(label);
+        assert(lv_obj_get_style_text_align(label,LV_PART_MAIN)==LV_TEXT_ALIGN_CENTER);
+        lv_area_t area;lv_obj_get_coords(label,&area);
+        assert(area.x1>=0&&area.x2<480&&area.y1>=0&&area.y2<172);
+        if(strcmp(text,"If found, please contact"))assert(lv_obj_get_style_text_font(label,LV_PART_MAIN)==&lv_font_montserrat_20);
+    }
+    auto *button=findButton(lv_layer_top(),"UNLOCK PAGER");assert(button);
+    lv_area_t area;lv_obj_get_coords(button,&area);assert(area.x1+area.x2==479&&area.y2<207);
+}
 int main() {
     LockPolicy policy;policy.configure(true,30,1000);
     assert(!policy.expired(30999)&&policy.expired(31000));
@@ -83,6 +103,7 @@ int main() {
     HapticService haptic;notifications.begin(lv_screen_active(),haptic);
     LockScreen lock;lock.begin(store,changed,nullptr,0);
     assert(lock.locked()&&isLocked&&!lock.enteringPasscode());
+    checkOwnerLayout();
     auto *ownerGroup=lv_indev_get_group(keyboard);assert(lv_group_get_obj_count(ownerGroup)==1);
     notifications.show("Message","Private contents stay hidden");
     assert(lv_indev_get_group(keyboard)==ownerGroup&&notifications.active());
